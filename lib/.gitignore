@@ -1,0 +1,11 @@
+# Ignore everything
+*
+
+# Except these (whitelist)
+!lib/
+!lib/**
+
+# Optional: allow README or pubspec.yaml if needed
+!pubspec.yaml
+!pubspec.lock
+!README.md
