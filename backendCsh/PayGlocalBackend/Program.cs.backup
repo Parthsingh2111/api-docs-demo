@@ -1,0 +1,196 @@
+using Microsoft.AspNetCore.Mvc;
+using PayGlocal;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container
+builder.Services.AddControllers()
+    .AddNewtonsoftJson();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFlutterApp", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+// Configure PayGlocal client
+builder.Services.AddSingleton<PayGlocalClient>(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    var payglocalConfig = configuration.GetSection("PayGlocal");
+
+    string ReadKeyValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        try
+        {
+            if (System.IO.File.Exists(value))
+            {
+                return System.IO.File.ReadAllText(value);
+            }
+        }
+        catch { }
+        return value;
+    }
+
+    var payglocalPublicKey = ReadKeyValue(payglocalConfig["payglocalPublicKey"]);
+    var merchantPrivateKey = ReadKeyValue(payglocalConfig["merchantPrivateKey"]);
+
+    return new PayGlocalClient(
+        merchantId: payglocalConfig["merchantId"],
+        apiKey: payglocalConfig["apiKey"],
+        environment: payglocalConfig["payglocalEnv"],
+        publicKeyId: payglocalConfig["publicKeyId"],
+        privateKeyId: payglocalConfig["privateKeyId"],
+        payglocalPublicKey: payglocalPublicKey,
+        merchantPrivateKey: merchantPrivateKey,
+        logLevel: payglocalConfig["logLevel"],
+        tokenExpiration: int.Parse(payglocalConfig["tokenExpiration"] ?? "300000")
+    );
+});
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseCors("AllowFlutterApp");
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
+
+
+// ===== Controllers =====
+
+[ApiController]
+[Route("api/[controller]")]
+public class PaymentController : ControllerBase
+{
+    private readonly PayGlocalClient _client;
+
+    public PaymentController(PayGlocalClient client)
+    {
+        _client = client;
+    }
+
+    [HttpPost("jwt")]
+    public async Task<IActionResult> JwtPayment([FromBody] dynamic payload)
+    {
+        var merchantTxnId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() + new Random().Next(100000, 999999);
+        payload.merchantTxnId = merchantTxnId;
+
+        var response = await _client.InitiateJwtPayment(payload);
+        Console.WriteLine("JWT Payment Response: " + Newtonsoft.Json.JsonConvert.SerializeObject(response));
+        return Ok(response);
+    }
+
+    [HttpPost("apikey")]
+    public async Task<IActionResult> ApiKeyPayment([FromBody] dynamic payload)
+    {
+        var merchantTxnId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() + new Random().Next(100000, 999999);
+        payload.merchantTxnId = merchantTxnId;
+
+        var response = await _client.InitiateApiKeyPayment(payload);
+        Console.WriteLine("API Key Payment Response: " + Newtonsoft.Json.JsonConvert.SerializeObject(response));
+        return Ok(response);
+    }
+
+    [HttpPost("si")]
+    public async Task<IActionResult> SiPayment([FromBody] dynamic payload)
+    {
+        var merchantTxnId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() + new Random().Next(100000, 999999);
+        payload.merchantTxnId = merchantTxnId;
+
+        var response = await _client.InitiateSiPayment(payload);
+        Console.WriteLine("SI Payment Response: " + Newtonsoft.Json.JsonConvert.SerializeObject(response));
+        return Ok(response);
+    }
+
+    [HttpPost("auth")]
+    public async Task<IActionResult> AuthPayment([FromBody] dynamic payload)
+    {
+        var merchantTxnId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() + new Random().Next(100000, 999999);
+        payload.merchantTxnId = merchantTxnId;
+
+        var response = await _client.InitiateAuthPayment(payload);
+        Console.WriteLine("Auth Payment Response: " + Newtonsoft.Json.JsonConvert.SerializeObject(response));
+        return Ok(response);
+    }
+
+    [HttpPost("alt")]
+    public async Task<IActionResult> AltPayment([FromBody] dynamic payload)
+    {
+        var merchantTxnId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() + new Random().Next(100000, 999999);
+        payload.merchantTxnId = merchantTxnId;
+
+        var response = await _client.InitiateJwtPayment(payload); // Assuming Alt Pay uses JWT internally
+        Console.WriteLine("Alt Payment Response: " + Newtonsoft.Json.JsonConvert.SerializeObject(response));
+        return Ok(response);
+    }
+
+    [HttpPost("cap")]
+    public async Task<IActionResult> CapturePayment([FromBody] dynamic payload)
+    {
+        var response = await _client.InitiateCapture(payload);
+        Console.WriteLine("Capture Response: " + Newtonsoft.Json.JsonConvert.SerializeObject(response));
+        return Ok(response);
+    }
+
+    [HttpPost("authreversal")]
+    public async Task<IActionResult> AuthReversal([FromBody] dynamic payload)
+    {
+        var response = await _client.InitiateAuthReversal(payload);
+        Console.WriteLine("Auth Reversal Response: " + Newtonsoft.Json.JsonConvert.SerializeObject(response));
+        return Ok(response);
+    }
+
+    [HttpPost("status")]
+    public async Task<IActionResult> Status([FromBody] dynamic payload)
+    {
+        var response = await _client.InitiateCheckStatus(payload);
+        Console.WriteLine("Status Response: " + Newtonsoft.Json.JsonConvert.SerializeObject(response));
+        return Ok(response);
+    }
+
+    [HttpPost("pauseActivate")]
+    public async Task<IActionResult> PauseActivate([FromBody] dynamic payload)
+    {
+        if (payload.action == "pause")
+        {
+            var response = await _client.InitiatePauseSI(payload);
+            Console.WriteLine("Pause SI Response: " + Newtonsoft.Json.JsonConvert.SerializeObject(response));
+            return Ok(response);
+        }
+        else if (payload.action == "activate")
+        {
+            var response = await _client.InitiateActivateSI(payload);
+            Console.WriteLine("Activate SI Response: " + Newtonsoft.Json.JsonConvert.SerializeObject(response));
+            return Ok(response);
+        }
+        else
+        {
+            return BadRequest("Invalid action, must be 'pause' or 'activate'.");
+        }
+    }
+
+    [HttpPost("refund")]
+    public async Task<IActionResult> Refund([FromBody] dynamic payload)
+    {
+        var response = await _client.InitiateRefund(payload);
+        Console.WriteLine("Refund Response: " + Newtonsoft.Json.JsonConvert.SerializeObject(response));
+        return Ok(response);
+    }
+}

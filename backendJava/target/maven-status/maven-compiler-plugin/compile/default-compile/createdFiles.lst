@@ -1,0 +1,6 @@
+com/payglocal/centralproject/service/PayGlocalClientService.class
+com/payglocal/centralproject/config/PayGlocalProperties.class
+com/payglocal/centralproject/web/ApiController.class
+com/payglocal/centralproject/web/GlobalExceptionHandler.class
+com/payglocal/centralproject/BackendJavaApplication.class
+com/payglocal/centralproject/web/CorsConfig.class

@@ -1,0 +1,47 @@
+{
+  "groups": [
+    {
+      "name": "payglocal",
+      "type": "com.payglocal.centralproject.config.PayGlocalProperties",
+      "sourceType": "com.payglocal.centralproject.config.PayGlocalProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "payglocal.environment",
+      "type": "java.lang.String",
+      "sourceType": "com.payglocal.centralproject.config.PayGlocalProperties"
+    },
+    {
+      "name": "payglocal.log-level",
+      "type": "java.lang.String",
+      "sourceType": "com.payglocal.centralproject.config.PayGlocalProperties"
+    },
+    {
+      "name": "payglocal.merchant-id",
+      "type": "java.lang.String",
+      "sourceType": "com.payglocal.centralproject.config.PayGlocalProperties"
+    },
+    {
+      "name": "payglocal.private-key-id",
+      "type": "java.lang.String",
+      "sourceType": "com.payglocal.centralproject.config.PayGlocalProperties"
+    },
+    {
+      "name": "payglocal.private-key-path",
+      "type": "java.lang.String",
+      "sourceType": "com.payglocal.centralproject.config.PayGlocalProperties"
+    },
+    {
+      "name": "payglocal.public-key-id",
+      "type": "java.lang.String",
+      "sourceType": "com.payglocal.centralproject.config.PayGlocalProperties"
+    },
+    {
+      "name": "payglocal.public-key-path",
+      "type": "java.lang.String",
+      "sourceType": "com.payglocal.centralproject.config.PayGlocalProperties"
+    }
+  ],
+  "hints": []
+}

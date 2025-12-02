@@ -1,0 +1,21 @@
+{
+    "name": "payglocal/php-backend",
+    "description": "PayGlocal PHP Backend Server",
+    "type": "project",
+    "require": {
+        "php": ">=8.0",
+        "vlucas/phpdotenv": "^5.0",
+        "payglocal/pg-client-sdk-php": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "PayGlocal\\Backend\\": "src/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+} 

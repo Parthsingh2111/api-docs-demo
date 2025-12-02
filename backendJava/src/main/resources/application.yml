@@ -1,0 +1,20 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: backend-java
+
+# Allow all origins for local development; tighten in production
+app:
+  cors:
+    allowed-origins: "*"
+
+payglocal:
+  merchant-id: "testnewgcc26"
+  public-key-id: "kId-yLtRky48X2HqW30k"
+  private-key-id: "kId-vU6e8l6bWtXK8oOK"
+  public-key-path: "/Users/parthsingh/proj/payglocalCentraProject/centralproject/backendjava/keys/payglocal_public_key"
+  private-key-path: "/Users/parthsingh/proj/payglocalCentraProject/centralproject/backendjava/keys/payglocal_private_key"
+  environment: "UAT"
+  log-level: "debug" 

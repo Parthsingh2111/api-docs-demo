@@ -1,0 +1,245 @@
+<?php
+
+require_once __DIR__ . '/pg-client-sdk-php/vendor/autoload.php';
+
+use PayGlocal\PgClientSdk\PayGlocalClient;
+
+// ------- CORS (simple) -------
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept, Origin, ngrok-skip-browser-warning');
+header('Content-Type: application/json');
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
+// ------- Env -------
+$envPath = __DIR__ . '/.env';
+if (file_exists($envPath)) {
+    foreach (file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        if (strpos($line, '=') !== false && strpos(ltrim($line), '#') !== 0) {
+            [$k, $v] = explode('=', $line, 2);
+            $_ENV[trim($k)] = trim($v);
+        }
+    }
+}
+
+// ------- Keys -------
+function readPemFromEnv(?string $value, string $baseDir): string {
+    $val = $value ?? '';
+    if ($val === '') return '';
+    if (strpos($val, '-----BEGIN') !== false) return $val;
+    if (file_exists($val)) return (string)file_get_contents($val);
+    $rel = rtrim($baseDir, '/').'/'.ltrim($val, '/');
+    if (file_exists($rel)) return (string)file_get_contents($rel);
+    return '';
+}
+
+$payglocalPublicKey = readPemFromEnv($_ENV['PAYGLOCAL_PUBLIC_KEY'] ?? '', __DIR__);
+$merchantPrivateKey = readPemFromEnv($_ENV['PAYGLOCAL_PRIVATE_KEY'] ?? '', __DIR__);
+
+// ------- SDK Client -------
+$client = new PayGlocalClient([
+    'apiKey' => $_ENV['PAYGLOCAL_API_KEY'] ?? '',
+    'merchantId' => $_ENV['PAYGLOCAL_MERCHANT_ID'] ?? '',
+    'publicKeyId' => $_ENV['PAYGLOCAL_PUBLIC_KEY_ID'] ?? '',
+    'privateKeyId' => $_ENV['PAYGLOCAL_PRIVATE_KEY_ID'] ?? '',
+    'payglocalPublicKey' => $payglocalPublicKey,
+    'merchantPrivateKey' => $merchantPrivateKey,
+    'payglocalEnv' => $_ENV['PAYGLOCAL_Env_VAR'] ?? 'UAT',
+    'logLevel' => $_ENV['PAYGLOCAL_LOG_LEVEL'] ?? 'debug',
+]);
+
+// ------- Helpers -------
+function respond(int $code, array $data): void {
+    http_response_code($code);
+    echo json_encode($data);
+    exit;
+}
+
+function inputJson(): array {
+    $raw = file_get_contents('php://input');
+    $data = json_decode($raw, true);
+    return is_array($data) ? $data : [];
+}
+
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$query = [];
+parse_str(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_QUERY) ?? '', $query);
+$input = inputJson();
+
+
+
+
+// ------- Prepare Payload -------
+// $payload = [
+//     "merchantTxnId" => "23AEE8CB6B62EE2AF07",
+//     "paymentData" => [
+//         "totalAmount" => "15", // numeric
+//         "txnCurrency" => "USD",
+//         "billingData" => [
+//             "firstName" => "John",
+//             "lastName" => "Denver",
+//             "addressStreet1" => "Test123",
+//             "addressStreet2" => "Punctuality lane",
+//             "addressCity" => "Bangalore",
+//             "addressState" => "Karnataka",
+//             "addressPostalCode" => "560094",
+//             "addressCountry" => "IN",
+//             "emailId" => "johndenver@myemail.com"
+//         ]
+//     ],
+//     "riskData" => [
+//         "shippingData" => [
+//             "firstName" => "John",
+//             "lastName" => "Denver",
+//             "addressStreet1" => "Test123",
+//             "addressStreet2" => "Punctuality lane",
+//             "addressCity" => "Bangalore",
+//             "addressState" => "Karnataka",
+//             "addressPostalCode" => "560094",
+//             "addressCountry" => "IN",
+//             "emailId" => "johndenver@myemail.com",
+//             "callingCode" => "+91",
+//             "phoneNumber" => "9008018469"
+//         ]
+//     ],
+//     "merchantCallbackURL" => "https://api.uat.payglocal.in/gl/v1/payments/merchantCallback"
+// ];
+
+
+
+
+$payload = [
+    "merchantTxnId" => "TXN_1757006600853",
+    "paymentData"  => [
+        "totalAmount" => "999.00",
+        "txnCurrency" => "INR",
+        "tokenData" => [
+            "altId" => "true",
+            "number" => "4039073788299302",
+            "expiryMonth" => "07",
+            "expiryYear" => "2026",
+            "securityCode" => "322",
+            "cryptogram" => "BASE64_CRYPTOGRAM_SAMPLE",
+            "requestorID" => "REQ123456",
+            "hashOfFirstSix" => "HASH123ABC",
+            "firstSix" => "403907",
+            "lastFour" => "9302",
+            "cardBrand" => "visa",
+            "cardCountryCode" => "USA",
+            "cardIssuerName" => "HDFC Bank",
+            "cardType" => "Debit",
+            "cardCategory" => "Classic"
+        ],
+        "billingData" => [
+            "firstName" => "John",
+            "lastName" => "Denver",
+            "emailId" => "john.denver@example.com",
+            "mobileNo" => "9008018469",
+            "address1" => "Rowley street 1",
+            "address2" => "Punctuality lane",
+            "city" => "Bangalore",
+            "state" => "Karnataka",
+            "postalCode" => "560094",
+            "country" => "IN"
+        ]
+    ],
+    "merchantCallbackURL" => "https://your-domain.com/callback"
+];
+
+
+
+
+
+
+// ------- Initiate Payment -------
+try {
+    $payment = $client->initiateJwtPayment($payload);
+
+    // Debug log if needed
+    // file_put_contents('payment_debug.log', print_r($payment, true));
+
+    $paymentLink = $payment['data']['redirectUrl'] ?? $payment['data']['redirect_url'] ?? $payment['data']['payment_link'] ?? $payment['data']['paymentLink'] ?? $payment['redirectUrl'] ?? $payment['redirect_url'] ?? $payment['payment_link'] ?? $payment['paymentLink'] ?? null;
+
+    $gid = $payment['data']['gid'] ?? $payment['data']['transactionId'] ?? $payment['gid'] ?? $payment['transactionId'] ?? null;
+
+    if (!$paymentLink || !$gid) {
+        respond(500, [
+            'status' => 'FAILURE',
+            'message' => 'Payment initiation failed: missing payment link or transaction ID',
+            'raw_response' => $payment
+        ]);
+    }
+
+    respond(200, [
+        'status' => 'SUCCESS',
+        'message' => 'Payment initiated successfully',
+        'payment_link' => $paymentLink,
+        'gid' => $gid,
+        'raw_response' => $payment
+    ]);
+
+} catch (\Exception $e) {
+    respond(500, [
+        'status' => 'ERROR',
+        'message' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
+    ]);
+}
+
+
+
+
+
+// ------- API Routing -------
+try {
+  if ($method === 'POST' && $path === '/api/pay/jwt') {
+    $merchantTxnId = $input['merchantTxnId'] ?? null;
+    $paymentData = $input['paymentData'] ?? null;
+    $merchantCallbackURL = $input['merchantCallbackURL'] ?? null;
+
+    if (!$merchantTxnId || !$paymentData || !$merchantCallbackURL) {
+      respond(400, [ 'status' => 'error', 'message' => 'Missing required fields' ]);
+    }
+
+    $payload = [
+      'merchantTxnId' => $merchantTxnId,
+      'paymentData' => $paymentData,
+      'merchantCallbackURL' => $merchantCallbackURL,
+    ];
+
+    $payment = $client->initiateJwtPayment($payload);
+
+    $paymentLink = $payment['data']['redirectUrl']
+      ?? $payment['data']['redirect_url']
+      ?? $payment['data']['payment_link']
+      ?? $payment['data']['paymentLink']
+      ?? $payment['redirectUrl']
+      ?? $payment['redirect_url']
+      ?? $payment['payment_link']
+      ?? $payment['paymentLink']
+      ?? null;
+
+    $gid = $payment['data']['gid']
+      ?? $payment['data']['transactionId']
+      ?? $payment['gid']
+      ?? $payment['transactionId']
+      ?? null;
+
+    respond(200, [
+      'status' => 'SUCCESS',
+      'message' => 'Payment initiated successfully',
+      'payment_link' => $paymentLink,
+      'gid' => $gid,
+      'raw_response' => $payment,
+    ]);
+  }
+
+  respond(404, [ 'status' => 'error', 'message' => 'Not Found' ]);
+} catch (Throwable $e) {
+  respond(500, [ 'status' => 'error', 'message' => $e->getMessage() ]);
+}
+
