@@ -55,8 +55,6 @@ app.*.map.json
 **/.env.*
 
 # Submodules and nested repositories
-backend/pg-client-sdk/
-backend/pgpd-client-sdk/
 backendCsh/pg-client-sdk-csharp/
 backendJava/vendor/pg-client-sdk-java/
 backendPhp/pg-client-sdk-php/

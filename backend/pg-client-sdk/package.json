@@ -1,0 +1,43 @@
+{
+  "name": "payglocal-client",
+  "version": "2.0.0",
+  "description": "A lightweight, secure, and dependency-minimal SDK for integrating with PayGlocal payment APIs",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "exports": {
+    "import": "./dist/index.mjs",
+    "require": "./dist/index.js"
+  },
+  "type": "commonjs",
+  "scripts": {
+    "build": "rollup -c",
+    "test": "echo \"No tests defined\""
+  },
+  "keywords": [
+    "payglocal",
+    "payment",
+    "sdk",
+    "api",
+    "integration",
+    "merchant"
+  ],
+  "author": "Parth Singh <singhparth2111@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "jose": "^6.0.11"
+  },
+  "devDependencies": {
+    "rollup": "^3.29.5",
+    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Parthsingh2111/pg-client-sdk"
+  }
+}
