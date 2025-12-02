@@ -44,7 +44,9 @@ class _PayCollectJwtDetailScreenState extends State<PayCollectJwtDetailScreen>
   void _onContentScrollDebounced() {
     _scrollDebounceTimer?.cancel();
     _scrollDebounceTimer = Timer(const Duration(milliseconds: 100), () {
-      _onContentScroll();
+      if (mounted && _contentScrollController.hasClients) {
+        _onContentScroll();
+      }
     });
   }
 
@@ -78,6 +80,11 @@ class _PayCollectJwtDetailScreenState extends State<PayCollectJwtDetailScreen>
   }
 
   void _onContentScroll() {
+    // Check if widget is still mounted and controller is attached
+    if (!mounted || !_contentScrollController.hasClients) {
+      return;
+    }
+    
     final now = DateTime.now();
     if (_lastScrollUpdate != null && 
         now.difference(_lastScrollUpdate!).inMilliseconds < 150) {
@@ -90,10 +97,11 @@ class _PayCollectJwtDetailScreenState extends State<PayCollectJwtDetailScreen>
     
     for (var entry in _sectionKeys.entries) {
       final key = entry.value;
-      if (key.currentContext != null) {
+      if (key.currentContext != null && mounted) {
         try {
-          final RenderBox? box = key.currentContext!.findRenderObject() as RenderBox?;
-          if (box != null && box.hasSize) {
+          final renderObject = key.currentContext!.findRenderObject();
+          if (renderObject is RenderBox && renderObject.hasSize) {
+            final box = renderObject;
             final position = box.localToGlobal(Offset.zero);
             final distance = (position.dy - 100).abs();
             
@@ -103,12 +111,14 @@ class _PayCollectJwtDetailScreenState extends State<PayCollectJwtDetailScreen>
             }
           }
         } catch (e) {
-          // Ignore errors during layout
+          // Ignore errors during layout - skip sections that can't be measured
+          continue;
         }
       }
     }
     
-    if (newActiveSection != null && newActiveSection != _activeSection) {
+    // Update active section only if mounted and changed
+    if (mounted && newActiveSection != null && newActiveSection != _activeSection) {
       setState(() {
         _activeSection = newActiveSection!;
       });
@@ -118,6 +128,7 @@ class _PayCollectJwtDetailScreenState extends State<PayCollectJwtDetailScreen>
   @override
   void dispose() {
     _scrollDebounceTimer?.cancel();
+    _contentScrollController.removeListener(_onContentScrollDebounced);
     _contentScrollController.dispose();
     _leftPanelAnimController.dispose();
     super.dispose();

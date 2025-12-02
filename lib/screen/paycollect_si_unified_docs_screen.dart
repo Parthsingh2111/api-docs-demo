@@ -52,7 +52,9 @@ class _PayCollectSiUnifiedDocsScreenState extends State<PayCollectSiUnifiedDocsS
     
     // Set new timer to debounce scroll events
     _scrollDebounceTimer = Timer(const Duration(milliseconds: 100), () {
-      _onContentScroll();
+      if (mounted && _contentScrollController.hasClients) {
+        _onContentScroll();
+      }
     });
   }
 
@@ -95,6 +97,11 @@ class _PayCollectSiUnifiedDocsScreenState extends State<PayCollectSiUnifiedDocsS
   }
 
   void _onContentScroll() {
+    // Check if widget is still mounted and controller is attached
+    if (!mounted || !_contentScrollController.hasClients) {
+      return;
+    }
+    
     // Prevent rapid updates - throttle to max once per 150ms
     final now = DateTime.now();
     if (_lastScrollUpdate != null && 
@@ -111,10 +118,11 @@ class _PayCollectSiUnifiedDocsScreenState extends State<PayCollectSiUnifiedDocsS
     for (var entry in _sectionKeys.entries) {
       final key = entry.value;
       final context = key.currentContext;
-      if (context != null) {
+      if (context != null && mounted) {
         try {
-          final box = context.findRenderObject() as RenderBox?;
-          if (box != null && box.hasSize) {
+          final renderObject = context.findRenderObject();
+          if (renderObject is RenderBox && renderObject.hasSize) {
+            final box = renderObject;
             final position = box.localToGlobal(Offset.zero);
             // Check if section is in viewport (with some tolerance)
             final distanceFromTop = (position.dy - 100).abs();
@@ -128,14 +136,14 @@ class _PayCollectSiUnifiedDocsScreenState extends State<PayCollectSiUnifiedDocsS
             }
           }
         } catch (e) {
-          // Skip sections that can't be measured
+          // Skip sections that can't be measured - ignore errors during scroll
           continue;
         }
       }
     }
     
-    // Update active section and trigger UI update (only if changed)
-    if (newActiveSection != null && newActiveSection != _activeSection) {
+    // Update active section and trigger UI update (only if changed and mounted)
+    if (mounted && newActiveSection != null && newActiveSection != _activeSection) {
       setState(() {
         _activeSection = newActiveSection!;
       });
@@ -179,6 +187,7 @@ class _PayCollectSiUnifiedDocsScreenState extends State<PayCollectSiUnifiedDocsS
   @override
   void dispose() {
     _scrollDebounceTimer?.cancel();
+    _contentScrollController.removeListener(_onContentScrollDebounced);
     _contentScrollController.dispose();
     _leftPanelAnimController.dispose();
     super.dispose();
