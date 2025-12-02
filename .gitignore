@@ -43,3 +43,22 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+**/.env
+**/.env.*
+
+# Submodules and nested repositories
+backend/pg-client-sdk/
+backend/pgpd-client-sdk/
+backendCsh/pg-client-sdk-csharp/
+backendJava/vendor/pg-client-sdk-java/
+backendPhp/pg-client-sdk-php/
+backendtest/pg-client-sdk/
+temp_csharp_study/
