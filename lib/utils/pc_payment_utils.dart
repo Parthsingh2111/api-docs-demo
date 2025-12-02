@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:intl/intl.dart';
-import 'package:centralproject/constants/api_constants.dart';
-import 'package:centralproject/config/app_config.dart';
-import 'package:centralproject/utils/logger.dart';
+import 'package:api_docs_demo/constants/api_constants.dart';
+import 'package:api_docs_demo/config/app_config.dart';
+import 'package:api_docs_demo/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;

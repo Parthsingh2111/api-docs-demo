@@ -1,0 +1,45 @@
+# Flutter build artifacts
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+
+# Build outputs (except web)
+build/android/
+build/ios/
+build/linux/
+build/macos/
+build/windows/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Submodules (if any remain)
+backendCsh/pg-client-sdk-csharp/
+backendJava/vendor/pg-client-sdk-java/
+backendPhp/pg-client-sdk-php/
+backendtest/pg-client-sdk/
+temp_csharp_study/
+
+# Backend (not needed for web deployment)
+backend/
+backendCsh/
+backendJava/
+backendPhp/
+backendtest/
+status-check-sample/
+test_jwt_project/
+node_modules/
+

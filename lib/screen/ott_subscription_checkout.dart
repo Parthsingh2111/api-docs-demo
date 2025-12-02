@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:centralproject/utils/pc_payment_utils.dart';
+import 'package:api_docs_demo/utils/pc_payment_utils.dart';
 import 'package:uuid/uuid.dart';
 
 class SubscriptionPlan {
