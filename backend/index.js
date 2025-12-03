@@ -408,7 +408,7 @@ const pdclient = new PayPdGlocalClient(config); // or use config2/config3 if nee
 
 app.post('/api/pay/jwt', async (req, res) => {
   try {
-      const { merchantTxnId,merchantUniqueId,paymentData, merchantCallbackURL} = req.body;
+      const { merchantTxnId,paymentData, merchantCallbackURL} = req.body;
       if (!merchantTxnId || !paymentData || !merchantCallbackURL) {
         return res.status(400).json({ 
           status: 'error',
@@ -420,7 +420,6 @@ app.post('/api/pay/jwt', async (req, res) => {
 
     const payload = {
       merchantTxnId,
-      merchantUniqueId,
       paymentData,
       merchantCallbackURL
     };
