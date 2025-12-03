@@ -75,12 +75,12 @@ class _ScrollToTopButtonState extends State<ScrollToTopButton>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: _showButton
+    return _showButton
           ? Positioned(
               right: 24,
               bottom: 24,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
               child: Material(
                 elevation: 4,
                 borderRadius: BorderRadius.circular(28),
@@ -104,12 +104,12 @@ class _ScrollToTopButtonState extends State<ScrollToTopButton>
                           (isDark ? Colors.white70 : AppTheme.accent),
                       size: 28,
                     ),
+                    ),
                   ),
                 ),
               ),
             )
-          : const SizedBox.shrink(),
-    );
+        : const SizedBox.shrink();
   }
 }
 
