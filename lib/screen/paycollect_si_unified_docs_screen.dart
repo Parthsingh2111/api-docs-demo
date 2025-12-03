@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
@@ -151,15 +150,9 @@ class _PayCollectSiUnifiedDocsScreenState extends State<PayCollectSiUnifiedDocsS
     }
     
     // Update active section and trigger UI update (only if changed and mounted)
-    // Defer setState to avoid layout glitches during scroll
     if (mounted && newActiveSection != null && newActiveSection != _activeSection) {
-      final sectionToSet = newActiveSection; // Capture value for closure
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (mounted && sectionToSet != null && sectionToSet != _activeSection) {
-          setState(() {
-            _activeSection = sectionToSet;
-          });
-        }
+      setState(() {
+        _activeSection = newActiveSection!;
       });
     }
   }
