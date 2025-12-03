@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
@@ -54,7 +55,7 @@ class _PayCollectSiUnifiedDocsScreenState extends State<PayCollectSiUnifiedDocsS
     // Set new timer to debounce scroll events
     _scrollDebounceTimer = Timer(const Duration(milliseconds: 100), () {
       if (mounted && _contentScrollController.hasClients) {
-        _onContentScroll();
+      _onContentScroll();
       }
     });
   }
@@ -106,16 +107,16 @@ class _PayCollectSiUnifiedDocsScreenState extends State<PayCollectSiUnifiedDocsS
 
     // Prevent rapid updates - throttle to max once per 150ms
     final now = DateTime.now();
-    if (_lastScrollUpdate != null &&
+    if (_lastScrollUpdate != null && 
         now.difference(_lastScrollUpdate!).inMilliseconds < 150) {
       return; // Skip this update to prevent flickering
     }
     _lastScrollUpdate = now;
-
+    
     // Detect which section is currently visible with improved accuracy
     String? newActiveSection;
     double closestDistance = double.infinity;
-
+    
     // Find the section closest to the top of the viewport
     for (var entry in _sectionKeys.entries) {
       final key = entry.value;
@@ -123,7 +124,7 @@ class _PayCollectSiUnifiedDocsScreenState extends State<PayCollectSiUnifiedDocsS
 
       if (context == null || !mounted) continue;
 
-      try {
+        try {
         final renderObject = context.findRenderObject();
 
         // More strict type checking to prevent casting errors
@@ -133,26 +134,32 @@ class _PayCollectSiUnifiedDocsScreenState extends State<PayCollectSiUnifiedDocsS
         if (!renderObject.attached) continue; // Check if attached to render tree
 
         final position = renderObject.localToGlobal(Offset.zero);
-        // Check if section is in viewport (with some tolerance)
-        final distanceFromTop = (position.dy - 100).abs();
-
-        // Prefer sections near the top of the viewport
-        if (position.dy <= 300 && position.dy >= -100) {
-          if (distanceFromTop < closestDistance) {
-            closestDistance = distanceFromTop;
-            newActiveSection = entry.key;
+            // Check if section is in viewport (with some tolerance)
+            final distanceFromTop = (position.dy - 100).abs();
+            
+            // Prefer sections near the top of the viewport
+            if (position.dy <= 300 && position.dy >= -100) {
+              if (distanceFromTop < closestDistance) {
+                closestDistance = distanceFromTop;
+                newActiveSection = entry.key;
+            }
           }
-        }
-      } catch (e) {
+        } catch (e) {
         // Skip sections that can't be measured - ignore errors during scroll
-        continue;
+          continue;
       }
     }
-
+    
     // Update active section and trigger UI update (only if changed and mounted)
+    // Defer setState to avoid layout glitches during scroll
     if (mounted && newActiveSection != null && newActiveSection != _activeSection) {
-      setState(() {
-        _activeSection = newActiveSection!;
+      final sectionToSet = newActiveSection; // Capture value for closure
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted && sectionToSet != null && sectionToSet != _activeSection) {
+          setState(() {
+            _activeSection = sectionToSet;
+          });
+        }
       });
     }
   }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
@@ -46,7 +47,7 @@ class _PayCollectAuthDetailScreenState extends State<PayCollectAuthDetailScreen>
     _scrollDebounceTimer?.cancel();
     _scrollDebounceTimer = Timer(const Duration(milliseconds: 100), () {
       if (mounted && _contentScrollController.hasClients) {
-        _onContentScroll();
+      _onContentScroll();
       }
     });
   }
@@ -93,22 +94,22 @@ class _PayCollectAuthDetailScreenState extends State<PayCollectAuthDetailScreen>
     }
 
     final now = DateTime.now();
-    if (_lastScrollUpdate != null &&
+    if (_lastScrollUpdate != null && 
         now.difference(_lastScrollUpdate!).inMilliseconds < 150) {
       return;
     }
     _lastScrollUpdate = now;
-
+    
     String? newActiveSection;
     double closestDistance = double.infinity;
-
+    
     for (var entry in _sectionKeys.entries) {
       final key = entry.value;
       final context = key.currentContext;
 
       if (context == null || !mounted) continue;
 
-      try {
+        try {
         final renderObject = context.findRenderObject();
 
         // More strict type checking to prevent casting errors
@@ -118,22 +119,28 @@ class _PayCollectAuthDetailScreenState extends State<PayCollectAuthDetailScreen>
         if (!renderObject.attached) continue; // Check if attached to render tree
 
         final position = renderObject.localToGlobal(Offset.zero);
-        final distance = (position.dy - 100).abs();
-
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          newActiveSection = entry.key;
-        }
-      } catch (e) {
+            final distance = (position.dy - 100).abs();
+            
+            if (distance < closestDistance) {
+              closestDistance = distance;
+              newActiveSection = entry.key;
+          }
+        } catch (e) {
         // Silently skip sections that can't be measured during layout
         continue;
       }
     }
-
+    
     // Update active section only if mounted and changed
+    // Defer setState to avoid layout glitches during scroll
     if (mounted && newActiveSection != null && newActiveSection != _activeSection) {
-      setState(() {
-        _activeSection = newActiveSection!;
+      final sectionToSet = newActiveSection; // Capture value for closure
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted && sectionToSet != null && sectionToSet != _activeSection) {
+          setState(() {
+            _activeSection = sectionToSet;
+          });
+        }
       });
     }
   }
