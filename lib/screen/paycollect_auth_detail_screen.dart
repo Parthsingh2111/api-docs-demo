@@ -7,6 +7,7 @@ import '../navigation/app_router.dart';
 import '../widgets/breadcrumb_navigation.dart';
 import '../widgets/smart_back_button.dart';
 import '../widgets/scroll_to_top_button.dart';
+import 'airline_interface.dart';
 
 class PayCollectAuthDetailScreen extends StatefulWidget {
   const PayCollectAuthDetailScreen({super.key});
@@ -64,6 +65,7 @@ class _PayCollectAuthDetailScreenState extends State<PayCollectAuthDetailScreen>
       'api-status-check',
       'api-refund-partial',
       'api-refund-full',
+      'product-demo',
     ];
     for (var section in sections) {
       _sectionKeys[section] = GlobalKey();
@@ -89,39 +91,45 @@ class _PayCollectAuthDetailScreenState extends State<PayCollectAuthDetailScreen>
     if (!mounted || !_contentScrollController.hasClients) {
       return;
     }
-    
+
     final now = DateTime.now();
-    if (_lastScrollUpdate != null && 
+    if (_lastScrollUpdate != null &&
         now.difference(_lastScrollUpdate!).inMilliseconds < 150) {
       return;
     }
     _lastScrollUpdate = now;
-    
+
     String? newActiveSection;
     double closestDistance = double.infinity;
-    
+
     for (var entry in _sectionKeys.entries) {
       final key = entry.value;
-      if (key.currentContext != null && mounted) {
-        try {
-          final renderObject = key.currentContext!.findRenderObject();
-          if (renderObject is RenderBox && renderObject.hasSize) {
-            final box = renderObject;
-            final position = box.localToGlobal(Offset.zero);
-            final distance = (position.dy - 100).abs();
-            
-            if (distance < closestDistance) {
-              closestDistance = distance;
-              newActiveSection = entry.key;
-            }
-          }
-        } catch (e) {
-          // Ignore errors during layout - skip sections that can't be measured
-          continue;
+      final context = key.currentContext;
+
+      if (context == null || !mounted) continue;
+
+      try {
+        final renderObject = context.findRenderObject();
+
+        // More strict type checking to prevent casting errors
+        if (renderObject == null) continue;
+        if (renderObject is! RenderBox) continue;
+        if (!renderObject.hasSize) continue;
+        if (!renderObject.attached) continue; // Check if attached to render tree
+
+        final position = renderObject.localToGlobal(Offset.zero);
+        final distance = (position.dy - 100).abs();
+
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          newActiveSection = entry.key;
         }
+      } catch (e) {
+        // Silently skip sections that can't be measured during layout
+        continue;
       }
     }
-    
+
     // Update active section only if mounted and changed
     if (mounted && newActiveSection != null && newActiveSection != _activeSection) {
       setState(() {
@@ -342,6 +350,11 @@ class _PayCollectAuthDetailScreenState extends State<PayCollectAuthDetailScreen>
                     _buildNavItem(isDark, 'Status Check', 'api-status-check', Icons.info),
                     _buildNavItem(isDark, 'Partial Refund', 'api-refund-partial', Icons.pie_chart_outline),
                     _buildNavItem(isDark, 'Full Refund', 'api-refund-full', Icons.check_circle),
+                    const SizedBox(height: 16),
+                    
+                    // Product Demo
+                    _buildCategoryHeader(isDark, 'PRODUCT DEMO', Icons.play_circle_outline),
+                    _buildNavItem(isDark, 'Try Demo', 'product-demo', Icons.flight),
                   ],
                 )
               : null,
@@ -597,6 +610,14 @@ class _PayCollectAuthDetailScreenState extends State<PayCollectAuthDetailScreen>
             Container(key: _sectionKeys['api-refund-full']),
             _buildApiFullRefundInfo(isDark),
             const SizedBox(height: 48),
+
+            Divider(height: 1, color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB)),
+            const SizedBox(height: 40),
+
+            // PRODUCT DEMO
+            Container(key: _sectionKeys['product-demo']),
+            _buildProductDemoSection(isDark),
+            const SizedBox(height: 48),
           ],
         ),
       ),
@@ -791,6 +812,116 @@ class _PayCollectAuthDetailScreenState extends State<PayCollectAuthDetailScreen>
         'Refund typically processes within 5-7 business days',
         'Webhook notification sent upon refund completion',
       ],
+    );
+  }
+
+  Widget _buildProductDemoSection(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.accent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.play_circle_outline,
+                  size: 28,
+                  color: AppTheme.accent,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Product Demo',
+                      style: GoogleFonts.inter(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Experience Auth & Capture in action',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Try our interactive demo to see how Auth & Capture works in a real travel booking scenario. Experience the complete flow from authorization to capture and refund.',
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              color: isDark ? Colors.white70 : Colors.black87,
+              height: 1.6,
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AirlineBookingPage(isPayDirect: false),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.play_arrow, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Launch Product Demo',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -203,7 +203,7 @@ class _PayCollectDocsScreenState extends State<PayCollectDocsScreen>
     final badges = [
       {'icon': Icons.security, 'label': 'PCI DSS\nCompliant'},
       {'icon': Icons.account_balance, 'label': 'RBI\nLicensed'},
-      {'icon': Icons.verified, 'label': 'ISO\nCertified'},
+      {'icon': Icons.verified, 'label': 'Apple Pay\nSupport'},
       {'icon': Icons.lock, 'label': 'Bank Grade\nSecurity'},
     ];
 
@@ -261,9 +261,9 @@ class _PayCollectDocsScreenState extends State<PayCollectDocsScreen>
           children: [
             _AnimatedStatCard(
               animation: _statsController,
-              endValue: 99.8,
-              label: 'Success Rate',
-              suffix: '%',
+              endValue: 30,
+              label: 'Methods',
+              suffix: '+',
               icon: Icons.trending_up,
               color: AppTheme.success,
             ),
@@ -277,16 +277,16 @@ class _PayCollectDocsScreenState extends State<PayCollectDocsScreen>
             ),
             _AnimatedStatCard(
               animation: _statsController,
-              endValue: 5000,
-              label: 'Active Merchants',
-              suffix: '+',
+              endValue: 500,
+              label: 'Daily API Requests',
+              suffix: 'M+',
               icon: Icons.business,
               color: AppTheme.accent,
             ),
             _AnimatedStatCard(
               animation: _statsController,
-              endValue: 200,
-              label: 'Countries Supported',
+              endValue: 130,
+              label: 'Certified Currencies Supported',
               suffix: '+',
               icon: Icons.public,
               color: AppTheme.warning,
@@ -572,32 +572,24 @@ class _PayCollectDocsScreenState extends State<PayCollectDocsScreen>
       {
         'icon': Icons.security,
         'title': 'No PCI DSS Compliance Required',
-        'value': '80%',
-        'metric': 'Cost Savings',
         'description': 'Eliminate expensive PCI DSS certification and annual audits',
         'color': AppTheme.success,
       },
       {
         'icon': Icons.speed,
         'title': 'Faster Time-to-Market',
-        'value': '75%',
-        'metric': 'Faster Launch',
         'description': 'Go live in days instead of months with hosted solution',
         'color': AppTheme.info,
       },
       {
         'icon': Icons.trending_up,
         'title': 'Higher Success Rates',
-        'value': '99.8%',
-        'metric': 'Transaction Success',
         'description': 'Bank-grade infrastructure ensures maximum uptime',
         'color': AppTheme.accent,
       },
       {
         'icon': Icons.support_agent,
         'title': '24/7 Technical Support',
-        'value': '<15min',
-        'metric': 'Response Time',
         'description': 'Dedicated integration team and round-the-clock support',
         'color': AppTheme.warning,
       },
@@ -633,50 +625,30 @@ class _PayCollectDocsScreenState extends State<PayCollectDocsScreen>
                   color: benefit['color'] as Color,
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    benefit['value'] as String,
-                    style: GoogleFonts.inter(
-                      fontSize: 20,
-            fontWeight: FontWeight.w700,
-                      color: benefit['color'] as Color,
-                    ),
-                  ),
-                  Text(
-                    benefit['metric'] as String,
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              Column(
+              Expanded(
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     benefit['title'] as String,
                     style: GoogleFonts.inter(
-                      fontSize: 13,
+                        fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
             height: 1.2,
           ),
         ),
-                  const SizedBox(height: 4),
+                    const SizedBox(height: 8),
         Text(
                     benefit['description'] as String,
                     style: GoogleFonts.inter(
-                      fontSize: 11,
+                        fontSize: 13,
                       color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                      height: 1.3,
+                        height: 1.4,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
+                ),
               ),
             ],
           ),
