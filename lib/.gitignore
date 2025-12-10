@@ -12,7 +12,17 @@
 !theme/**
 !navigation/
 !navigation/**
+!config/
+!config/**
+!utils/
+!utils/**
+!constants/
+!constants/**
+!widgets/
+!widgets/**
 
 # Allow package metadata
 !../pubspec.yaml
 !../pubspec.lock
+
+
