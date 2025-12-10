@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'dart:html' as html show window;
+
 enum Environment { development, staging, production }
 
 class AppConfig {
@@ -7,6 +9,28 @@ class AppConfig {
   
   // API Configuration
   static String get baseUrl {
+    // Detect if running on Vercel
+    if (kIsWeb) {
+      try {
+        final hostname = html.window.location.hostname;
+        final protocol = html.window.location.protocol;
+        
+        // If running on Vercel, use the same domain for backend
+        if (hostname.contains('vercel.app') || hostname.contains('vercel.com')) {
+          // Backend is on the same domain as frontend
+          return '${protocol}//${hostname}';
+        }
+        
+        // If running on localhost, use local backend
+        if (hostname == 'localhost' || hostname == '127.0.0.1') {
+          return 'http://localhost:3000';  //js - 3000, php - 3001, csh - 5000
+        }
+      } catch (e) {
+        // If dart:html is not available or fails, fall back to default
+      }
+    }
+    
+    // Fallback to environment-based configuration
     switch (_environment) {
       case Environment.development:
         return 'http://localhost:3000';  //js - 3000, php - 3001, csh - 5000

@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/shared_app_bar.dart';
+import '../constants/api_constants.dart';
 // import 'payglocal_interop.dart'; // File missing - interop functionality disabled
 
 // Stub definitions for missing interop functionality
@@ -231,7 +232,7 @@ class _PayGlocalCodedropScreenState extends State<PayGlocalCodedropScreen> {
     };
 
     final res = await http.post(
-      Uri.parse("http://localhost:3000/api/codedrop"),
+      Uri.parse(codeDropUrl),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode(payload),
     );
@@ -838,7 +839,7 @@ class _PayGlocalCodedropScreenState extends State<PayGlocalCodedropScreen> {
     const delayMs = 1500;
     for (int i = 0; i < attempts; i++) {
       try {
-        final resp = await http.get(Uri.parse('http://localhost:3000/api/codedrop/status?gid=$gid'));
+        final resp = await http.get(Uri.parse('$codeDropUrl/status?gid=$gid'));
         if (resp.statusCode == 200) {
           final body = jsonDecode(resp.body);
           final txStatus = (body['transactionStatus'] ?? '').toString().toUpperCase();

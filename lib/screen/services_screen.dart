@@ -795,7 +795,7 @@ Error details: $e''');
   Future<bool> _checkBackendConnectivity() async {
     try {
       final response = await http
-          .get(Uri.parse('http://localhost:3000/api/status'))
+          .get(Uri.parse(statusUrl))
           .timeout(const Duration(seconds: 5));
       return response.statusCode == 200;
     } catch (e) {
