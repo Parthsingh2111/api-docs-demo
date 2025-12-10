@@ -63,11 +63,22 @@ if (!process.env.VERCEL && !process.env.VERCEL_ENV) {
 module.exports = app;
 
 function normalizePemKey(key) {
+  if (!key || typeof key !== 'string') {
+    throw new Error('Key must be a non-empty string');
+  }
+  
   return key
     .trim()
-    .replace(/\r\n|\r/g, '\n') // Normalize line endings to \n
-    .replace(/\n\s*\n/g, '\n') // Remove empty lines
-    .replace(/[^\x00-\x7F]/g, ''); // Remove non-ASCII characters
+    // First, convert literal \n escape sequences to actual newlines (for Vercel env vars)
+    .replace(/\\n/g, '\n')
+    // Also handle double-escaped newlines (\\n -> \n -> actual newline)
+    .replace(/\\\\n/g, '\n')
+    // Normalize line endings
+    .replace(/\r\n|\r/g, '\n')
+    // Remove empty lines
+    .replace(/\n\s*\n/g, '\n')
+    // Remove non-ASCII characters
+    .replace(/[^\x00-\x7F]/g, '');
 }
 
 // Helper function to load key from env var or file
