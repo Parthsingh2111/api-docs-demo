@@ -1,0 +1,45 @@
+{
+    "name": "payglocal/pg-client-sdk-php-7.2",
+    "description": "PayGlocal Minimal Token Generator for PHP 7.2+ - Lightweight JWE/JWS token generation for payment initiation",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "payglocal",
+        "payment",
+        "gateway",
+        "sdk",
+        "php7.2",
+        "jwt",
+        "jwe",
+        "jws",
+        "token-generation"
+    ],
+    "authors": [
+        {
+            "name": "PayGlocal",
+            "email": "support@payglocal.in"
+        }
+    ],
+    "require": {
+        "php": ">=7.2",
+        "ext-curl": "*",
+        "ext-openssl": "*",
+        "ext-json": "*",
+        "web-token/jwt-framework": "^1.3|^2.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "PayGlocal\\TokenGenerator\\": "src/"
+        },
+        "files": [
+            "src/pg_token_generator.php"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
+

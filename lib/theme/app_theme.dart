@@ -180,7 +180,7 @@ class AppTheme {
   static const Color red600 = Color(0xFFDC2626);
   static const Color teal600 = Color(0xFF0D9488);
   static const Color pink600 = Color(0xFFDB2777);
-
+  
   // ============================================================================
   // SPACING SYSTEM - 8px Grid
   // ============================================================================

@@ -80,7 +80,7 @@ class _PayCollectScreenState extends State<PayCollectScreen>
 
     return ThemedScaffold(
       appBar: SharedAppBar(
-        title: 'PayCollect Payment Methods',
+        title: 'PayCollect Payment Methodssssssss',
         fadeAnimation: _appBarFadeAnimation,
         leading: IconButton(
           icon: Icon(

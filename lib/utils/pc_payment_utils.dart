@@ -34,6 +34,7 @@ Future<void> handlePcJwtPayment(
     final merchantTxnId = generateMerchantTxnId();
     final payload = {
       "merchantTxnId": merchantTxnId,
+      "merchantUniqueId": "1234567890yfghj",
       "paymentData": {"totalAmount": amount, "txnCurrency": currency},
       "merchantCallbackURL":
           "https://api.uat.payglocal.in/gl/v1/payments/merchantCallback",

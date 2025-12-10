@@ -60,9 +60,9 @@ class _PayCollectSiApiReferenceScreenState
         } catch (e) {
           // Fallback: scroll using controller if ensureVisible fails
           if (_scrollController.hasClients && key?.currentContext != null) {
-            final RenderBox? box = key?.currentContext?.findRenderObject() as RenderBox?;
-            if (box != null) {
-              final position = box.localToGlobal(Offset.zero).dy;
+            final renderObject = key?.currentContext?.findRenderObject();
+            if (renderObject is RenderBox && renderObject.attached && renderObject.hasSize) {
+              final position = renderObject.localToGlobal(Offset.zero).dy;
               _scrollController.animateTo(
                 _scrollController.offset + position - 100,
                 duration: const Duration(milliseconds: 500),

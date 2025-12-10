@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PayGlocal Simple Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .test-area {
+            border: 2px solid #ddd;
+            padding: 30px;
+            margin: 20px 0;
+            border-radius: 6px;
+            background: #fafafa;
+            min-height: 100px;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PayGlocal Simple Script Test</h1>
+        <div class="info">
+            <strong>Testing minimal code:</strong><br>
+            &lt;form&gt;&lt;script src="https://oneclick.payglocal.in/simple.js" data-pb-id="pb_6uxLKEi8sRLc"&gt;&lt;/script&gt;&lt;/form&gt;
+        </div>
+        
+        <h2>Payment Button Area:</h2>
+        <div class="test-area">
+            <form>
+                <script src="https://oneclick.payglocal.in/simple.js" data-pb-id="pb_6uxLKEi8sRLc"></script>
+            </form>
+        </div>
+        
+        <div class="info">
+            <strong>Check:</strong> If the payment button appears above, the script is working!<br>
+            Open browser console (F12) to see any errors or logs.
+        </div>
+    </div>
+    
+    <script>
+        // Simple monitoring
+        window.addEventListener('load', function() {
+            console.log('Page loaded - checking PayGlocal script...');
+            setTimeout(function() {
+                const script = document.querySelector('script[src*="oneclick.payglocal.in"]');
+                if (script) {
+                    console.log('✅ PayGlocal script element found:', script.src);
+                    console.log('Payment Button ID:', script.getAttribute('data-pb-id'));
+                } else {
+                    console.log('❌ PayGlocal script not found');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
+

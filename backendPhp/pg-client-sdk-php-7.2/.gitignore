@@ -1,0 +1,10 @@
+/vendor/
+composer.lock
+.idea/
+.vscode/
+*.log
+keys/
+.env
+*.pem
+*.key
+

@@ -3,7 +3,7 @@ import '../screen/welcome_screen.dart';
 import '../screen/paycollect_screen.dart';
 import '../screen/paydirect_screen.dart';
 import '../screen/paycollect_docs_screen.dart';
-import '../screen/paydirect_docs_screen.dart';
+// import '../screen/paydirect_docs_screen.dart'; // Using paydirect_screen.dart instead
 import '../screen/services_screen.dart';
 import '../screen/sdks_screen.dart';
 import '../screen/visualization_screen.dart';
@@ -38,8 +38,13 @@ import '../screen/paycollect_auth_detail_screen.dart';
 import '../screen/paycollect_si_api_reference.dart';
 import '../screen/paycollect_auth_api_reference.dart';
 import '../screen/paydirect_jwt_detail_screen.dart';
-import '../screen/paydirect_si_detail_screen.dart';
+// import '../screen/paydirect_si_detail_screen.dart'; // File doesn't exist, using unified docs instead
+import '../screen/paydirect_si_unified_docs_screen.dart';
 import '../screen/paydirect_auth_detail_screen.dart';
+import '../screen/paydirect_api_reference_screen.dart';
+import '../screen/paydirect_api_reference_jwt_screen.dart';
+import '../screen/paydirect_api_reference_si_screen.dart';
+import '../screen/paydirect_api_reference_auth_screen.dart';
 import '../screen/api_credentials_screen.dart';
 import '../widgets/universal_scaffold.dart';
 
@@ -96,6 +101,7 @@ class AppRouter {
   
   // PayDirect routes
   static const String paydirectJwt = '/paydirect/jwt';
+  static const String paydirectAuth = '/paydirect/auth';
   static const String paydirectOtt = '/paydirect/ott_subscription_checkout';
   static const String paydirectAirline = '/paydirect/airline';
   static const String paydirectBill = '/paydirect/bill_payment';
@@ -104,8 +110,13 @@ class AppRouter {
   // PayDirect Detail routes
   static const String paydirectJwtDetail = '/paydirect-jwt-detail';
   static const String paydirectSiDetail = '/paydirect-si-detail';
+  static const String paydirectSiUnifiedDocs = '/paydirect-si-unified-docs';
   static const String paydirectAuthDetail = '/paydirect-auth-detail';
-  
+  static const String paydirectApiReference = '/paydirect-api-reference';
+  static const String paydirectApiReferenceJwt = '/paydirect-api-reference-jwt';
+  static const String paydirectApiReferenceSi = '/paydirect-api-reference-si';
+  static const String paydirectApiReferenceAuth = '/paydirect-api-reference-auth';
+
   // Standing Instruction routes
   static const String standingInstruction = '/standing_instruction';
 
@@ -129,7 +140,7 @@ class AppRouter {
         return _wrapWithUniversal(const PayCollectDocsScreen(), settings, name);
       
       case paydirectDocs:
-        return _wrapWithUniversal(const PayDirectDocsScreen(), settings, name);
+        return _wrapWithUniversal(const PayDirectScreen(), settings, name);
       
       case services:
         return _wrapWithUniversal(const ServicesScreen(), settings, name);
@@ -262,13 +273,28 @@ class AppRouter {
       // PayDirect Detail routes
       case paydirectJwtDetail:
         return _wrapWithUniversal(const PayDirectJwtDetailScreen(), settings, name);
-      
+
       case paydirectSiDetail:
-        return _wrapWithUniversal(const PayDirectSiDetailScreen(), settings, name);
-      
+        return _wrapWithUniversal(const PayDirectSiUnifiedDocsScreen(), settings, name);
+
+      case paydirectSiUnifiedDocs:
+        return _wrapWithUniversal(const PayDirectSiUnifiedDocsScreen(), settings, name);
+
       case paydirectAuthDetail:
         return _wrapWithUniversal(const PayDirectAuthDetailScreen(), settings, name);
-      
+
+      case paydirectApiReference:
+        return _wrapWithUniversal(const PayDirectAPIReferenceScreen(), settings, name);
+
+      case paydirectApiReferenceJwt:
+        return _wrapWithUniversal(const PayDirectJWTAPIReferenceScreen(), settings, name);
+
+      case paydirectApiReferenceSi:
+        return _wrapWithUniversal(const PayDirectSiAPIReferenceScreen(), settings, name);
+
+      case paydirectApiReferenceAuth:
+        return _wrapWithUniversal(const PayDirectAuthAPIReferenceScreen(), settings, name);
+
       // PayCollect routes
       case paycollectJwt:
         return _buildRoute(
@@ -306,7 +332,13 @@ class AppRouter {
           const clothingMerchantInterface(isPayDirect: true),
           settings,
         );
-      
+
+      case paydirectAuth:
+        return _buildRoute(
+          const AirlineBookingPage(isPayDirect: true),
+          settings,
+        );
+
       case paydirectOtt:
         return _buildRoute(
           const OttSubscriptionCheckoutScreen(isPayDirect: true),

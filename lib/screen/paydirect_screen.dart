@@ -1,587 +1,718 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
-import '../widgets/shared_app_bar.dart';
+import '../widgets/premium_app_bar.dart';
+import '../widgets/premium_button.dart';
 import '../theme/app_theme.dart';
 
 class PayDirectScreen extends StatefulWidget {
   const PayDirectScreen({super.key});
 
   @override
-  _PayDirectScreenState createState() => _PayDirectScreenState();
+  State<PayDirectScreen> createState() => _PayDirectScreenState();
 }
 
 class _PayDirectScreenState extends State<PayDirectScreen>
     with TickerProviderStateMixin {
+  late AnimationController _statsController;
   late AnimationController _fadeController;
-  late Animation<double> _fadeAnimation;
-  late AnimationController _appBarFadeController;
-  late Animation<double> _appBarFadeAnimation;
-  late AnimationController _decorationAnimationController;
-  late Animation<double> _decorationAnimation;
-  int _animationCycles = 0;
+  String _selectedTab = 'overview';
   final ScrollController _scrollController = ScrollController();
-  final GlobalKey _faqKey = GlobalKey();
-  bool _showFAQ = false;
 
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-      duration: const Duration(seconds: 1),
+    _statsController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
       vsync: this,
     )..forward();
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.bounceInOut, // Changed from easeIn
-    );
-    _appBarFadeController = AnimationController(
-      duration: const Duration(seconds: 1),
-      vsync: this,
-    )..forward();
-    _appBarFadeAnimation = CurvedAnimation(
-      parent: _appBarFadeController,
-      curve: Curves.bounceInOut, // Changed from easeIn
-    );
-    _decorationAnimationController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
-    _decorationAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _decorationAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-    _decorationAnimationController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _animationCycles++;
-        if (_animationCycles < 2) {
-          _decorationAnimationController.reverse();
-        } else {
-          _decorationAnimationController.stop();
-        }
-      } else if (status == AnimationStatus.dismissed && _animationCycles < 2) {
-        _decorationAnimationController.forward();
-      }
-    });
-    _decorationAnimationController.forward();
 
-    _scrollController.addListener(() {
-      if (_scrollController.offset > 600 && !_showFAQ) {
-        setState(() {
-          _showFAQ = true;
-        });
-      }
-    });
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..forward();
+
+    // Set default tab to overview (no other tabs now)
+    _selectedTab = 'overview';
   }
 
   @override
   void dispose() {
+    _statsController.dispose();
     _fadeController.dispose();
-    _appBarFadeController.dispose();
-    _decorationAnimationController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _scrollToFAQ() {
-    setState(() {
-      _showFAQ = true;
-    });
-    final context = _faqKey.currentContext;
-    if (context != null) {
-      final RenderBox box = context.findRenderObject() as RenderBox;
-      final position = box.localToGlobal(Offset.zero).dy +
-          _scrollController.offset -
-          MediaQuery.of(context).padding.top -
-          70;
-      _scrollController.animateTo(
-        position,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isLargeScreen = screenWidth > 800;
-    final titleFontSize = isLargeScreen ? 28.0 : 22.0;
-    final subtitleFontSize = isLargeScreen ? 16.0 : 14.0;
-    final overlayPadding = isLargeScreen ? 16.0 : 12.0;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.darkBackground : const Color(0xFFF8FAFC),
-      appBar: SharedAppBar(
-        title: 'PayDirect Payment Methods',
-        fadeAnimation: _appBarFadeAnimation,
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.gray50,
+      appBar: const PremiumAppBar(
+        title: 'PayDirect Documentation',
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Container(
-                      margin: EdgeInsets.all(overlayPadding),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkSurface : Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.1),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                        border: Border.all(
-                          color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: isDark ? [
-                                      AppTheme.darkSuccessEmerald.withOpacity(0.08),
-                                      AppTheme.darkJwtBlue.withOpacity(0.05),
-                                    ] : [
-                                      const Color(0xFF3B82F6).withOpacity(0.05),
-                                      const Color(0xFFE5E7EB).withOpacity(0.1),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                ),
-                                child: CustomPaint(
-                                  painter: WavePainter(),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: (isDark ? AppTheme.darkSuccessEmerald : AppTheme.success).withOpacity(0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.payment,
-                                        size: 24,
-                                        color: isDark ? AppTheme.darkSuccessEmeraldLight : const Color(0xFF1E3A8A),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        'PayDirect Payment Solutions',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: titleFontSize,
-                                          fontWeight: FontWeight.w700,
-                                          color: isDark ? AppTheme.darkSuccessEmeraldLight : const Color(0xFF1E3A8A),
-                                          height: 1.3,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Secure and fast direct payment methods for PCI DSS compliant merchants who collect card details on their own interface.',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: subtitleFontSize,
-                                    fontWeight: FontWeight.w400,
-                                    color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF4B5563),
-                                    height: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Wrap(
-                                  spacing: 12,
-                                  runSpacing: 12,
-                                  children: [
-                                    ElevatedButton(
-                                      onPressed: _scrollToFAQ,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.success,
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 20,
-                                          vertical: 12,
-                                        ),
-                                        elevation: 2,
-                                      ),
-                                      child: Text(
-                                        'FAQ',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                    if (isLargeScreen)
-                                      OutlinedButton(
-                                        onPressed: () {
-                                          try {
-                                            Navigator.pushNamed(context, '/contact');
-                                          } catch (e) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(
-                                                content: Text('Contact route not found'),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: AppTheme.success,
-                                          side: BorderSide(color: AppTheme.success),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 20,
-                                            vertical: 12,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          'Contact Us',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: const Color(0xFF3B82F6),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF3B82F6).withOpacity(0.2),
-                                borderRadius: const BorderRadius.only(
-                                  bottomLeft: Radius.circular(16),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      return GridView.count(
-                        crossAxisCount: constraints.maxWidth > 800 ? 3 : 1,
-                        crossAxisSpacing: 30,
-                        mainAxisSpacing: 30,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        childAspectRatio: 0.9,
-                        children: [
-                          _PaymentMethodCard(
-                            title: 'JWT PayDirect',
-                            description: 'Direct payment initiation using JWT for seamless transactions.',
-                            details: '''
-**JWT PayDirect Overview**  
-JWT-based authentication enables fast and secure direct payment initiation for PayDirect APIs. It uses asymmetric and symmetric keys (JWE/JWS) for robust security, perfect for merchants seeking seamless payment processing. Contact our integration team for SDK support.  
+      body: SingleChildScrollView(
+        controller: _scrollController,
+        child: Column(
+          children: [
+            // Hero Section with Stats
+            _buildHeroSection(theme, isDark, screenWidth),
 
-**Key Features:**  
-- Utilizes JWE/JWS encryption for secure direct payments.  
-- Streamlined for PayDirect API integrations.  
-- Ensures data integrity, non-repudiation, and confidentiality.  
+            // Overview Content (only content now)
+            _buildOverviewContent(theme, isDark, screenWidth),
 
-**Use Cases:**  
-- Instant payment processing for e-commerce.  
-- Merchants requiring secure, direct payment flows.  
-
-**Integration Steps:**  
-- Contact PayGlocal integration team for SDKs.  
-- Implement asymmetric/symmetric key-based authentication.  
-- Use `x-gl-token-external` header for JWT payloads.  
-
-**Sample API Request (PayDirect):**  
-```json
-{
-  "merchantTxnId": "23AEE8CB6B62EE2AF07",
-  "paymentData": {
-    "totalAmount": "89",
-    "txnCurrency": "INR",
-    "cardData": {
-      "number": "5132552222223470",
-      "expiryMonth": "12",
-      "expiryYear": "2030",
-      "securityCode": "123"
-    }
-  },
-  "merchantCallbackURL": "https://api.prod.payglocal.in/gl/v1/payments/merchantCallback"
-}
-```  
-
-**Endpoint:** `/gl/v1/payments/initiate`  
-**Copyable Endpoint:** `/gl/v1/payments/initiate`  
-
-**Benefits:**  
-- Fast and secure direct payment processing.  
-- Supports PayDirect API for seamless integration.  
-- Ensures data confidentiality and integrity.  
-
-*For more details on JWT, refer to [RFC 7519](https://tools.ietf.org/html/rfc7519).*
-''',
-                            route: '/paydirect-jwt-detail',
-                            icon: Icons.lock,
-                            badge: 'Direct JWT',
-                            badgeColor: AppTheme.darkJwtBlue,
-                            benefits: [
-                              'Fast direct payment processing',
-                              'Supports PayDirect API',
-                              'Secure JWT encryption',
-                            ],
-                          ),
-                          _PaymentMethodCard(
-                            title: 'SI PayDirect',
-                            description: 'Automate recurring direct payments with Fixed or Variable schedules.',
-                            details: '''
-**SI PayDirect Overview**  
-Standing Instructions (SI) for PayDirect enable automated recurring direct payments with Fixed (same amount each cycle) or Variable (up to a maximum limit) schedules. Ideal for subscriptions or utility bills, SI uses JWE/JWS encryption for security.  
-
-**Key Features:**  
-- Supports FIXED (e.g., subscriptions) and VARIABLE (e.g., utility bills) payment types.  
-- Configurable frequency (weekly, monthly) and number of payments.  
-- Secure with JWE/JWS encryption via `/gl/v1/payments/initiate`.  
-
-**Use Cases:**  
-- Fixed SI: Monthly subscriptions like streaming platforms (₹999/month).  
-- Variable SI: Utility bills with varying amounts up to a limit.  
-
-**Fixed SI Request:**  
-```json
-{
-  "merchantTxnId": "23AEE8CB6B62EE2AF07",
-  "paymentData": {
-    "totalAmount": "89",
-    "txnCurrency": "INR",
-    "cardData": {
-      "number": "5132552222223470",
-      "expiryMonth": "12",
-      "expiryYear": "2030",
-      "securityCode": "123"
-    }
-  },
-  "standingInstruction": {
-    "data": {
-      "amount": "1250.00",
-      "numberOfPayments": "4",
-      "frequency": "MONTHLY",
-      "type": "FIXED",
-      "startDate": "20220510"
-    }
-  },
-  "merchantCallbackURL": "https://api.prod.payglocal.in/gl/v1/payments/merchantCallback"
-}
-```  
-
-**Variable SI Request:**  
-```json
-{
-  "merchantTxnId": "23AEE8CB6B62EE2AF07",
-  "paymentData": {
-    "totalAmount": "89",
-    "txnCurrency": "INR",
-    "cardData": {
-      "number": "5132552222223470",
-      "expiryMonth": "12",
-      "expiryYear": "2030",
-      "securityCode": "123"
-    }
-  },
-  "standingInstruction": {
-    "data": {
-      "maxAmount": "1250.00",
-      "numberOfPayments": "4",
-      "frequency": "ONDEMAND",
-      "type": "VARIABLE"
-    }
-  },
-  "merchantCallbackURL": "https://api.prod.payglocal.in/gl/v1/payments/merchantCallback"
-}
-```  
-
-**Endpoint:** `/gl/v1/payments/initiate`  
-**Copyable Endpoint:** `/gl/v1/payments/initiate`  
-
-**Benefits:**  
-- Automates recurring direct payments.  
-- Flexible FIXED or VARIABLE scheduling.  
-- Secure JWE/JWS encryption.  
-
-*Contact PayGlocal support to configure SI for your merchant account.*
-''',
-                            route: '/paydirect/si',
-                            icon: Icons.repeat,
-                            badge: 'Direct SI',
-                            badgeColor: AppTheme.darkRecurringAmber,
-                            benefits: [
-                              'Automates recurring direct payments',
-                              'Flexible FIXED/VARIABLE options',
-                              'Secure JWE/JWS encryption',
-                            ],
-                          ),
-                          _PaymentMethodCard(
-                            title: 'Auth & Capture',
-                            description: 'Separate authorization and capture for flexible payment processing.',
-                            details: '''
-**Auth & Capture Overview**  
-The Standalone flow separates authorization, capture, and reversal phases, allowing merchants to reserve funds and capture later. Ideal for e-commerce, travel, or logistics requiring delayed fulfillment.  
-
-**Key Components:**  
-- **Authorization**: Reserves funds without debiting (e.g., check inventory).  
-- **Capture**: Charges the reserved amount after confirmation (e.g., after shipping).  
-- **Reversal**: Releases held funds if the transaction is canceled (e.g., out of stock).  
-
-**Use Cases:**  
-- E-commerce: Authorize payment, capture after stock confirmation.  
-- Travel: Reserve funds for flight bookings, capture after seat confirmation.  
-- Hotels: Authorize for reservations, capture after stay.  
-
-**Authorization Request**  
-**Endpoint:** `/gl/v1/payments/auth` (POST)  
-**Copyable Endpoint:** `/gl/v1/payments/auth`  
-```json
-{
-  "paymentData": {
-    "totalAmount": "100",
-    "txnCurrency": "INR"
+            // CTA Section (full width)
+            _buildCTASection(theme, isDark, screenWidth),
+          ],
+        ),
+      ),
+    );
   }
-}
-```  
 
-**Authorization Response**  
-**Endpoint:** `/gl/v1/payments/auth` (POST)  
-**Copyable Endpoint:** `/gl/v1/payments/auth`  
-```json
-{
-  "gid": "gl-13bbd3c4-9817-4786-96c6-12fa6191f118",
-  "status": "AUTHORIZED",
-  "message": "Authorization Successful",
-  "timestamp": "2021-04-12T07:47:18Z"
-}
-```  
+  Widget _buildHeroSection(ThemeData theme, bool isDark, double screenWidth) {
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 900;
 
-**Capture Request**  
-**Endpoint:** `/gl/v1/payments/{gid}/capture` (POST)  
-**Copyable Endpoint:** `/gl/v1/payments/{gid}/capture`  
-```json
-{
-  "merchantTxnId": "23AEE8CB6B62EE2AF07",
-  "paymentData": {
-    "totalAmount": ""
-  },
-  "captureType": "F"
-}
-```  
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  AppTheme.primaryDark,
+                  AppTheme.primaryMid,
+                  AppTheme.success.withOpacity(0.3),
+                ]
+              : [
+                  const Color(0xFF0A5C36),
+                  const Color(0xFF047857),
+                  AppTheme.success.withOpacity(0.8),
+                ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Background pattern
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _GridPatternPainter(
+                color: Colors.white.withOpacity(0.03),
+              ),
+            ),
+          ),
 
-**Reversal Request**  
-**Endpoint:** `/gl/v1/payments/{gid}/auth-reversal` (POST)  
-**Copyable Endpoint:** `/gl/v1/payments/{gid}/auth-reversal`  
-```json
-{
-  "merchantTxnId": "23AEE8CB6B62EE2AF07"
-}
-```  
-
-**Why Use It?**  
-- Fine control over funds movement.  
-- Prevents premature charges for unfulfilled orders.  
-- Ideal for businesses with inventory or confirmation delays.  
-
-**Who Uses It?**  
-- E-commerce, travel, hotels, logistics, and event ticketing merchants.  
-
-**Benefits:**  
-- Flexible authorization and capture process.  
-- Clean reversal without refund flows.  
-- Supports delayed fulfillment workflows.  
-
-*Contact PayGlocal support to configure Standalone services for your account.*
-''',
-                            route: '/paydirect/airline',
-                            icon: Icons.swap_horiz,
-                            badge: 'Flexible',
-                            badgeColor: AppTheme.darkSuccessEmerald,
-                            benefits: [
-                              'Flexible authorization and capture',
-                              'Prevents premature charges',
-                              'Ideal for delayed fulfillment',
-                            ],
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 32),
-                  Visibility(
-                    visible: _showFAQ,
-                    child: _FAQSection(key: _faqKey),
-                  ),
-                  if (_showFAQ) ...[
-                    const SizedBox(height: 32),
-                    FadeTransition(
-                      opacity: _decorationAnimation,
-                      child: Container(
-                        height: 8,
-                        width: 300,
+          // Content
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : (isTablet ? 24 : 48),
+              vertical: isMobile ? 40 : 64,
+            ),
+            child: Column(
+              children: [
+                // Title and description
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 900),
+                  child: Column(
+                    children: [
+                      // Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF3B82F6),
-                              Color(0xFF10B981),
-                              Color(0xFFFFA500),
-                            ],
-                            begin: Alignment.bottomLeft,
-                            end: Alignment.bottomRight,
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
                           ),
-                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.credit_card,
+                              size: 16,
+                              color: AppTheme.success,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Direct Payment Solution',
+                              style: GoogleFonts.inter(
+                                fontSize: isMobile ? 12 : 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+
+                      // Main title
+                      Text(
+                        'PayDirect',
+                        style: GoogleFonts.inter(
+                          fontSize: isMobile ? 36 : (isTablet ? 48 : 56),
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          height: 1.1,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Subtitle
+                      Text(
+                        'Process payments directly with full control. For PCI DSS certified merchants who collect card data on their own interface.',
+                        style: GoogleFonts.inter(
+                          fontSize: isMobile ? 16 : 20,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.white.withOpacity(0.9),
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Trust badges
+                      _buildTrustBadges(isMobile, isTablet),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 48),
+
+                // Animated statistics
+                _buildAnimatedStats(isMobile, isTablet, isDark),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrustBadges(bool isMobile, bool isTablet) {
+    final badges = [
+      {'icon': Icons.verified_user, 'label': 'PCI DSS\nRequired'},
+      {'icon': Icons.payment, 'label': 'Direct\nPayment'},
+      {'icon': Icons.security, 'label': 'Full\nControl'},
+      {'icon': Icons.speed, 'label': 'High\nPerformance'},
+    ];
+
+    return Wrap(
+      spacing: isMobile ? 12 : 24,
+      runSpacing: 16,
+      alignment: WrapAlignment.center,
+      children: badges.map((badge) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                badge['icon'] as IconData,
+                size: isMobile ? 24 : 28,
+                color: Colors.white,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                badge['label'] as String,
+                style: GoogleFonts.inter(
+                  fontSize: isMobile ? 10 : 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withOpacity(0.9),
+                  height: 1.2,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildAnimatedStats(bool isMobile, bool isTablet, bool isDark) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = isMobile ? 2 : (isTablet ? 2 : 4);
+
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: crossAxisCount,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: isMobile ? 1.3 : 1.5,
+          children: [
+            _AnimatedStatCard(
+              animation: _statsController,
+              endValue: 25,
+              label: 'Payment Methods',
+              suffix: '+',
+              icon: Icons.credit_card,
+              color: AppTheme.success,
+            ),
+            _AnimatedStatCard(
+              animation: _statsController,
+              endValue: 100,
+              label: 'Avg Response Time',
+              suffix: 'ms',
+              icon: Icons.speed,
+              color: AppTheme.info,
+            ),
+            _AnimatedStatCard(
+              animation: _statsController,
+              endValue: 300,
+              label: 'Daily API Requests',
+              suffix: 'M+',
+              icon: Icons.business,
+              color: AppTheme.accent,
+            ),
+            _AnimatedStatCard(
+              animation: _statsController,
+              endValue: 99,
+              label: 'Success Rate',
+              suffix: '.9%',
+              icon: Icons.check_circle,
+              color: AppTheme.warning,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+  Widget _buildOverviewContent(ThemeData theme, bool isDark, double screenWidth) {
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 900;
+
+    return Padding(
+      padding: EdgeInsets.all(isMobile ? 16 : (isTablet ? 24 : 32)),
+        child: Center(
+          child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // What is PayDirect
+              _buildSectionTitle('What is PayDirect?', isDark, isMobile),
+              const SizedBox(height: 16),
+              _buildContentCard(
+                    isDark,
+                child: Text(
+                    'PayDirect is a direct payment integration solution for PCI DSS compliant merchants who collect card data on their own interface. You maintain full control over the payment flow and customer experience, while PayGlocal handles secure processing through our robust payment gateway. This approach is ideal for enterprises requiring maximum customization and direct card data handling.',
+                  style: GoogleFonts.inter(
+                    fontSize: isMobile ? 15 : 16,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    height: 1.7,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 48),
+
+              // Payment Flow Diagram
+              _buildSectionTitle('Payment Flow', isDark, isMobile),
+              const SizedBox(height: 16),
+              _PaymentFlowDiagram(isDark: isDark, isMobile: isMobile),
+              const SizedBox(height: 48),
+
+              // Business Benefits
+              _buildSectionTitle('Key Benefits', isDark, isMobile),
+              const SizedBox(height: 16),
+              _buildBusinessBenefits(isDark, isMobile, isTablet),
+              const SizedBox(height: 48),
+
+              // Payment Methods
+              _buildSectionTitle('Payment Methods', isDark, isMobile),
+              const SizedBox(height: 16),
+              _buildPaymentMethods(isDark, isMobile, isTablet),
+              const SizedBox(height: 48),
+
+                  // For Which Merchants
+              _buildSectionTitle('Ideal For', isDark, isMobile),
+              const SizedBox(height: 16),
+              _buildMerchantTypes(isDark, isMobile, isTablet),
                 ],
               ),
             ),
+          ),
+    );
+  }
+
+
+  Widget _buildSectionTitle(String title, bool isDark, bool isMobile) {
+    return Text(
+      title,
+      style: GoogleFonts.inter(
+        fontSize: isMobile ? 24 : 32,
+        fontWeight: FontWeight.w700,
+        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+      ),
+    );
+  }
+
+  Widget _buildContentCard(bool isDark, {required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : AppTheme.borderLight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+
+  Widget _buildMerchantTypes(bool isDark, bool isMobile, bool isTablet) {
+    final types = [
+      {
+        'icon': Icons.business_center,
+        'title': 'Enterprise Businesses',
+        'description': 'Large corporations requiring customized payment experiences and direct control',
+      },
+      {
+        'icon': Icons.account_balance,
+        'title': 'Financial Institutions',
+        'description': 'Banks and fintech requiring specialized integrations and compliance',
+      },
+      {
+        'icon': Icons.store_mall_directory,
+        'title': 'Retail Chains',
+        'description': 'Multi-location businesses needing unified payment processing',
+      },
+      {
+        'icon': Icons.code,
+        'title': 'Tech-First Companies',
+        'description': 'Development teams wanting full API control and custom implementations',
+      },
+      {
+        'icon': Icons.payment,
+        'title': 'Payment Aggregators',
+        'description': 'Platforms providing payment services to multiple merchants',
+      },
+      {
+        'icon': Icons.local_hospital,
+        'title': 'Healthcare Providers',
+        'description': 'Medical institutions requiring HIPAA-compliant payment processing',
+      },
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isMobile ? 1 : (isTablet ? 2 : 3),
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: isMobile ? 2 : 1.3,
+      ),
+      itemCount: types.length,
+      itemBuilder: (context, index) {
+        final type = types[index];
+        return _buildContentCard(
+          isDark,
+          child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+                padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+                  color: AppTheme.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  type['icon'] as IconData,
+                  size: 28,
+                  color: AppTheme.success,
+            ),
+          ),
+              const SizedBox(height: 16),
+              Text(
+                type['title'] as String,
+            style: GoogleFonts.inter(
+                  fontSize: 16,
+              fontWeight: FontWeight.w600,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                type['description'] as String,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBusinessBenefits(bool isDark, bool isMobile, bool isTablet) {
+    final benefits = [
+      {
+        'icon': Icons.brush,
+        'title': 'Full UI Customization',
+        'description': 'Complete control over payment interface and user experience',
+        'color': AppTheme.success,
+      },
+      {
+        'icon': Icons.speed,
+        'title': 'Direct Processing',
+        'description': 'No redirects - payments processed on your domain',
+        'color': AppTheme.info,
+      },
+      {
+        'icon': Icons.code,
+        'title': 'Advanced API Access',
+        'description': 'Comprehensive APIs with full customization capability',
+        'color': AppTheme.accent,
+      },
+      {
+        'icon': Icons.analytics,
+        'title': 'Real-time Analytics',
+        'description': 'Instant access to transaction data and insights',
+        'color': AppTheme.warning,
+      },
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isMobile ? 1 : (isTablet ? 2 : 4),
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: isMobile ? 1.8 : (isTablet ? 1.5 : 1.1),
+      ),
+      itemCount: benefits.length,
+      itemBuilder: (context, index) {
+        final benefit = benefits[index];
+        return _buildContentCard(
+          isDark,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: (benefit['color'] as Color).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  benefit['icon'] as IconData,
+                  size: 24,
+                  color: benefit['color'] as Color,
+                ),
+              ),
+              Expanded(
+                child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    benefit['title'] as String,
+                    style: GoogleFonts.inter(
+                        fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+            height: 1.2,
+          ),
+        ),
+                    const SizedBox(height: 8),
+        Text(
+                    benefit['description'] as String,
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                        height: 1.4,
+                    ),
+                  ),
+                ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPaymentMethods(bool isDark, bool isMobile, bool isTablet) {
+    final methods = [
+      {
+        'icon': Icons.lock,
+        'title': 'JWT Authentication',
+        'description': 'Secure payment processing with JWT token encryption for enhanced security',
+        'route': '/paydirect-jwt-detail',
+        'color': AppTheme.info,
+        'benefits': [
+          'Enhanced security with JWT',
+          'Full control over payment flow',
+          'Direct card data handling',
+        ],
+      },
+      {
+        'icon': Icons.credit_card,
+        'title': 'Auth & Capture',
+        'description': 'Two-step payment process - authorize first, capture later for flexible payment control',
+        'route': '/paydirect-auth-detail',
+        'color': AppTheme.success,
+        'benefits': [
+          'Hold funds before capture',
+          'Flexible payment timing',
+          'Reduce chargebacks',
+        ],
+      },
+      {
+        'icon': Icons.repeat,
+        'title': 'Standing Instructions',
+        'description': 'Automated recurring payments with customer consent for subscriptions and recurring billing',
+        'route': '/paydirect-si-detail',
+        'color': AppTheme.warning,
+        'benefits': [
+          'Automated recurring payments',
+          'Reduced manual processing',
+          'Improved cash flow',
+        ],
+      },
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isMobile ? 1 : (isTablet ? 2 : 3),
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: isMobile ? 1.1 : (isTablet ? 0.95 : 0.85),
+      ),
+      itemCount: methods.length,
+      itemBuilder: (context, index) {
+        final method = methods[index];
+        return _PaymentMethodCard(
+          icon: method['icon'] as IconData,
+          title: method['title'] as String,
+          description: method['description'] as String,
+          route: method['route'] as String,
+          color: method['color'] as Color,
+          benefits: method['benefits'] as List<String>,
+          isDark: isDark,
+          isMobile: isMobile,
+        );
+      },
+    );
+  }
+
+  Widget _buildCTASection(ThemeData theme, bool isDark, double screenWidth) {
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 900;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : (isTablet ? 24 : 32),
+        vertical: isMobile ? 40 : 64,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [AppTheme.success.withOpacity(0.2), AppTheme.info.withOpacity(0.2)]
+              : [AppTheme.success.withOpacity(0.1), AppTheme.info.withOpacity(0.1)],
+        ),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppTheme.darkBorder : AppTheme.borderLight,
+          ),
+          bottom: BorderSide(
+            color: isDark ? AppTheme.darkBorder : AppTheme.borderLight,
+          ),
+        ),
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Ready to Get Started?',
+                style: GoogleFonts.inter(
+                  fontSize: isMobile ? 24 : 28,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Explore PayDirect payment methods including JWT Authentication, Standing Instructions, and Auth & Capture.',
+                style: GoogleFonts.inter(
+                  fontSize: isMobile ? 15 : 16,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  height: 1.6,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: [
+                  PremiumButton(
+                    label: 'View Payment Methods',
+                    icon: Icons.arrow_forward,
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/paydirect-docs');
+                    },
+                    buttonStyle: PremiumButtonStyle.primary,
+                    isFullWidth: false,
+                  ),
+                  PremiumButton(
+                    label: 'API Documentation',
+                    icon: Icons.code,
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/api-reference');
+                    },
+                    buttonStyle: PremiumButtonStyle.secondary,
+                    isFullWidth: false,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -589,1177 +720,386 @@ The Standalone flow separates authorization, capture, and reversal phases, allow
   }
 }
 
-class WavePainter extends CustomPainter {
+// ============================================================================
+// CUSTOM WIDGETS
+// ============================================================================
+
+class _AnimatedStatCard extends StatelessWidget {
+  final Animation<double> animation;
+  final double endValue;
+  final String label;
+  final String suffix;
+  final IconData icon;
+  final Color color;
+
+  const _AnimatedStatCard({
+    required this.animation,
+    required this.endValue,
+    required this.label,
+    required this.suffix,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 32,
+            color: color,
+          ),
+          const SizedBox(height: 12),
+          AnimatedBuilder(
+            animation: animation,
+            builder: (context, child) {
+              final value = endValue * animation.value;
+              return Text(
+                '${value.toStringAsFixed(endValue < 10 ? 1 : 0)}$suffix',
+                style: GoogleFonts.inter(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: Colors.white.withOpacity(0.8),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentFlowDiagram extends StatelessWidget {
+  final bool isDark;
+  final bool isMobile;
+
+  const _PaymentFlowDiagram({
+    required this.isDark,
+    required this.isMobile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = [
+      {'icon': Icons.store, 'label': 'Merchant\nInterface', 'color': AppTheme.success},
+      {'icon': Icons.arrow_forward, 'label': '', 'color': Colors.transparent},
+      {'icon': Icons.credit_card, 'label': 'Card Data\nCollection', 'color': AppTheme.info},
+      {'icon': Icons.arrow_forward, 'label': '', 'color': Colors.transparent},
+      {'icon': Icons.lock, 'label': 'JWT\nEncryption', 'color': AppTheme.warning},
+      {'icon': Icons.arrow_forward, 'label': '', 'color': Colors.transparent},
+      {'icon': Icons.cloud, 'label': 'PayGlocal\nGateway', 'color': AppTheme.accent},
+      {'icon': Icons.arrow_forward, 'label': '', 'color': Colors.transparent},
+      {'icon': Icons.check_circle, 'label': 'Payment\nProcessed', 'color': AppTheme.success},
+    ];
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 20 : 32),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : AppTheme.borderLight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: _buildSteps(steps, isDark, false),
+      ),
+    );
+  }
+
+  List<Widget> _buildSteps(List<Map<String, dynamic>> steps, bool isDark, bool isVertical) {
+    return steps.asMap().entries.map((entry) {
+      final index = entry.key;
+      final step = entry.value;
+      final isArrow = step['icon'] == Icons.arrow_forward;
+
+      if (isArrow) {
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Icon(
+              isVertical ? Icons.arrow_downward : Icons.arrow_forward,
+              size: 32,
+              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+            ),
+          ),
+        );
+      }
+
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: (step['color'] as Color).withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: step['color'] as Color,
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              step['icon'] as IconData,
+              size: 32,
+              color: step['color'] as Color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 100,
+            child: Text(
+              step['label'] as String,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                height: 1.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+    }).toList();
+  }
+}
+
+class _GridPatternPainter extends CustomPainter {
+  final Color color;
+
+  _GridPatternPainter({required this.color});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF3B82F6).withOpacity(0.1)
-      ..style = PaintingStyle.fill;
+      ..color = color
+      ..strokeWidth = 1;
 
-    final path = Path();
-    path.moveTo(0, size.height * 0.8);
-    path.quadraticBezierTo(
-      size.width * 0.25,
-      size.height * 0.9,
-      size.width * 0.5,
-      size.height * 0.8,
-    );
-    path.quadraticBezierTo(
-      size.width * 0.75,
-      size.height * 0.7,
-      size.width,
-      size.height * 0.8,
-    );
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
-    path.close();
+    const spacing = 30.0;
 
-    canvas.drawPath(path, paint);
+    // Draw vertical lines
+    for (double x = 0; x < size.width; x += spacing) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        paint,
+      );
+    }
+
+    // Draw horizontal lines
+    for (double y = 0; y < size.height; y += spacing) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        paint,
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _FAQSection extends StatefulWidget {
-  const _FAQSection({super.key});
-
-  @override
-  _FAQSectionState createState() => _FAQSectionState();
-}
-
-class _FAQSectionState extends State<_FAQSection> {
-  int? _hoveredIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isLargeScreen = screenWidth > 800;
-    final titleFontSize = isLargeScreen ? 20.0 : 18.0;
-    final bodyFontSize = isLargeScreen ? 16.0 : 14.0;
-    final cardPadding = isLargeScreen ? 24.0 : 16.0;
-
-    final faqs = [
-      {
-        'question': 'For whom is the PayDirect method designed?',
-        'answer':
-            'PayDirect is designed for PCI DSS certified merchants who prefer to collect card details directly on their own interface. It\'s ideal for businesses like e-commerce platforms, subscription services, or travel agencies that want to control the payment UI while ensuring secure processing through PayGlocal.',
-      },
-      {
-        'question': 'What if a merchant doesn\'t want to collect card details directly?',
-        'answer':
-            'Merchants who prefer not to handle card details directly should use the PayCollect method. PayCollect allows PayGlocal to manage card data securely, ensuring compliance without requiring merchants to maintain PCI DSS certification.',
-      },
-      {
-        'question': 'What are the security standards for PayDirect methods?',
-        'answer':
-            'PayDirect methods (JWT PayDirect, SI PayDirect, and Auth & Capture) utilize JSON Web Encryption (JWE) and JSON Web Signature (JWS) for robust security. These standards ensure data confidentiality, integrity, and non-repudiation during payment processing.',
-      },
-      {
-        'question': 'What is this demo website for?',
-        'answer':
-            'This demo website showcases PayGlocal\'s PayDirect integration, including JWT PayDirect, SI PayDirect, and Auth & Capture. It provides minimum required API payload fields to simplify onboarding. For full payload details, merchants can refer to our comprehensive documentation.',
-      },
-      {
-        'question': 'What support is available for integrating PayDirect?',
-        'answer':
-            'PayGlocal provides dedicated integration support, including SDKs, detailed documentation, and a technical support team. Merchants can contact our integration team via the "Contact Us" page for assistance with API setup, testing, or resolving queries.',
-      },
-      // {
-      //   'question': 'Can PayDirect be used with other payment methods?',
-      //   'answer':
-      //       'Yes, PayDirect can be integrated with other payment methods like UPI, net banking, or wallets, depending on the merchant's requirements and PayGlocal's supported gateways. Contact our support team to configure multi-method payment solutions.',
-      // },
-    ];
-
-    return Container(
-      padding: EdgeInsets.all(cardPadding),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-            ),
-        ],
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6).withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.help_outline,
-                  size: 24,
-                  color: Color(0xFF1E3A8A),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Frequently Asked Questions',
-                style: GoogleFonts.poppins(
-                  fontSize: isLargeScreen ? 24.0 : 20.0,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1E3A8A),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          ...faqs.asMap().entries.map((entry) {
-            final index = entry.key;
-            final faq = entry.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: MouseRegion(
-                onEnter: (_) => setState(() => _hoveredIndex = index),
-                onExit: (_) => setState(() => _hoveredIndex = null),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  transform: Matrix4.identity()
-                    ..scale(_hoveredIndex == index ? 1.02 : 1.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(_hoveredIndex == index ? 0.15 : 0.05),
-                        blurRadius: _hoveredIndex == index ? 10 : 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                    border: Border.all(
-                      color: _hoveredIndex == index
-                          ? const Color(0xFF3B82F6).withOpacity(0.5)
-                          : const Color(0xFFE5E7EB),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: ExpansionTile(
-                    leading: Icon(
-                      Icons.question_answer,
-                      size: isLargeScreen ? 24 : 20,
-                      color: _hoveredIndex == index
-                          ? const Color(0xFF3B82F6)
-                          : const Color(0xFF4B5563),
-                    ),
-                    title: Text(
-                      faq['question']!,
-                      style: GoogleFonts.poppins(
-                        fontSize: titleFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: _hoveredIndex == index
-                            ? const Color(0xFF1E3A8A)
-                            : const Color(0xFF111827),
-                      ),
-                    ),
-                    iconColor: const Color(0xFF3B82F6),
-                    collapsedIconColor: const Color(0xFF4B5563),
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(cardPadding),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF9FAFB),
-                          borderRadius: const BorderRadius.vertical(
-                            bottom: Radius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          faq['answer']!,
-                          style: GoogleFonts.poppins(
-                            fontSize: bodyFontSize,
-                            color: const Color(0xFF4B5563),
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
-
 class _PaymentMethodCard extends StatefulWidget {
+  final IconData icon;
   final String title;
   final String description;
-  final String details;
   final String route;
-  final IconData icon;
-  final String badge;
-  final Color badgeColor;
+  final Color color;
   final List<String> benefits;
+  final bool isDark;
+  final bool isMobile;
 
   const _PaymentMethodCard({
+    required this.icon,
     required this.title,
     required this.description,
-    required this.details,
     required this.route,
-    required this.icon,
-    required this.badge,
-    required this.badgeColor,
+    required this.color,
     required this.benefits,
+    required this.isDark,
+    required this.isMobile,
   });
 
   @override
-  _PaymentMethodCardState createState() => _PaymentMethodCardState();
+  State<_PaymentMethodCard> createState() => _PaymentMethodCardState();
 }
 
-class _PaymentMethodCardState extends State<_PaymentMethodCard>
-    with TickerProviderStateMixin {
+class _PaymentMethodCardState extends State<_PaymentMethodCard> {
   bool _isHovered = false;
-  late AnimationController _dialogAnimationController;
-  late Animation<double> _dialogFadeAnimation;
-  late Animation<double> _dialogScaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _dialogAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    )..forward();
-    _dialogFadeAnimation = CurvedAnimation(
-      parent: _dialogAnimationController,
-      curve: Curves.easeInOut,
-    );
-    _dialogScaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _dialogAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _dialogAnimationController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isLargeScreen = screenWidth > 800;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      transform: Matrix4.identity()..scale(_isHovered ? 1.03 : 1.0),
-      child: Card(
-        color: isDark ? AppTheme.darkSurface : const Color(0xFFF9FAFB),
-        elevation: _isHovered ? 6 : 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: isDark ? AppTheme.darkBorder : const Color(0xFFD1D5DB)),
-        ),
-        child: InkWell(
-          onTap: () {
-            try {
-              Navigator.pushNamed(context, widget.route);
-            } catch (e) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${widget.route} route not found')),
-              );
-            }
-          },
-          borderRadius: BorderRadius.circular(12),
-          hoverColor: isDark ? AppTheme.darkSurfaceElevated : const Color(0xFFF3F4F6),
-          onHover: (hovered) {
-            setState(() {
-              _isHovered = hovered;
-            });
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      transform: Matrix4.identity()..scale(_isHovered ? 1.1 : 1.0),
-                      child: Icon(
-                        widget.icon,
-                        size: isLargeScreen ? 32 : 28,
-                        color: widget.badgeColor,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: widget.badgeColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        widget.badge,
-                        style: GoogleFonts.notoSans(
-                          fontSize: isLargeScreen ? 12 : 11,
-                          fontWeight: FontWeight.w600,
-                          color: widget.badgeColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.title,
-                  style: GoogleFonts.notoSans(
-                    fontSize: isLargeScreen ? 18 : 16,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.description,
-                  style: GoogleFonts.notoSans(
-                    fontSize: isLargeScreen ? 14 : 13,
-                    color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF4B5563),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: widget.benefits
-                          .map(
-                            (benefit) => Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 2.0,
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.check_circle,
-                                    size: isLargeScreen ? 16 : 14,
-                                    color: widget.badgeColor,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      benefit,
-                                      style: GoogleFonts.notoSans(
-                                        fontSize: isLargeScreen ? 13 : 12,
-                                        color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF4B5563),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (widget.route == '/paydirect-jwt-detail')
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/services/jwt');
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF3B82F6),
-                            side: const BorderSide(color: Color(0xFF3B82F6)),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          child: Text(
-                            'JWT Services',
-                            style: GoogleFonts.notoSans(
-                              fontSize: isLargeScreen ? 14 : 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    if (widget.route == '/paydirect-jwt-detail') const SizedBox(width: 8),
-                    if (widget.route == '/paydirect/si')
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/services/si');
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF3B82F6),
-                            side: const BorderSide(color: Color(0xFF3B82F6)),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          child: Text(
-                            'SI Services',
-                            style: GoogleFonts.notoSans(
-                              fontSize: isLargeScreen ? 14 : 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    if (widget.route == '/paydirect/si') const SizedBox(width: 8),
-                    if (widget.route == '/paydirect/airline')
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/services/auth');
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF3B82F6),
-                            side: const BorderSide(color: Color(0xFF3B82F6)),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          child: Text(
-                            'Auth Services',
-                            style: GoogleFonts.notoSans(
-                              fontSize: isLargeScreen ? 14 : 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    if (widget.route == '/paydirect/airline') const SizedBox(width: 8),
-                    Tooltip(
-                      message: 'Learn more about ${widget.title}',
-                      child: ElevatedButton(
-                        onPressed: () {
-                          try {
-                            Navigator.pushNamed(context, widget.route);
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '${widget.route} route not found',
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF3B82F6),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          elevation: _isHovered ? 2 : 0,
-                        ),
-                        child: Text(
-                          'Try Now',
-                          style: GoogleFonts.notoSans(
-                            fontSize: isLargeScreen ? 14 : 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        transform: Matrix4.identity()..scale(_isHovered ? 1.02 : 1.0),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: widget.isDark ? AppTheme.darkSurface : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _isHovered
+                  ? widget.color.withOpacity(0.5)
+                  : (widget.isDark ? AppTheme.darkBorder : AppTheme.borderLight),
+              width: _isHovered ? 2 : 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: _isHovered
+                    ? widget.color.withOpacity(0.2)
+                    : Colors.black.withOpacity(widget.isDark ? 0.2 : 0.05),
+                blurRadius: _isHovered ? 20 : 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ),
-      ),
-    );
-  }
-
-void _showDetailsDialog(BuildContext context) {
-  final screenWidth = MediaQuery.of(context).size.width;
-  final isLargeScreen = screenWidth > 800;
-  final titleFontSize = isLargeScreen ? 18.0 : 16.0;
-  final bodyFontSize = isLargeScreen ? 14.0 : 13.0;
-  final codeFontSize = isLargeScreen ? 12.0 : 11.0;
-  final iconSize = isLargeScreen ? 28.0 : 24.0;
-  final padding = isLargeScreen ? 16.0 : 12.0;
-
-  // Replace "startDate": "20220510" with current date
-  final now = DateTime.now();
-  final formattedDate = DateFormat('yyyyMMdd').format(now);
-  String updatedDetails = widget.details.replaceAll(
-    '"startDate": "20220510"',
-    '"startDate": "$formattedDate"',
-  );
-
-  // Define response JSONs
-  final Map<String, String> responses = {
-    'JWT PayDirect': '''{
-  "gid": "gl_o-962989f8777c7ff29lo0Yd5X2",
-  "status": "INPROGRESS",
-  "message": "Transaction Created Successfully",
-  "timestamp": "21/07/2025 14:35:51",
-  "reasonCode": "GL-201-001",
-  "data": {
-    "redirectUrl": "https://api.uat.payglocal.in/gl/payflow-ui/?x-gl-token=eyJpc3N1ZWQtYnkiOiJHbG9jYWwiLCJpcy1kaWdlc3RlZCI6ImZhbHNlIiwiYWxnIjoiUlMyNTYiLCJraWQiOiJrSWQtRU5oN3Y1bLdTNE56YjhScCJ9.eyJ4LWdsLW9yZGVySWQiOiJnbF9vLTk2Mjk4OWY4Nzc3YzdmZjI5bG8wWWQ1WDIiLCJhbXBsaWZpZXItbWlkIjpudWxsLCJpYXQiOiIxNzUzMDg4NzUxNTg1IiwieC1nbC1lbmMiOiJ0cnVlIiwieC1nbC1naWQiOiJnbF85NjI5ODlmODc3N2M3ZmYyNWU5bG8wWWQ1WDIiLCJ4LWdsLW1lcmNoYW50SWQiOiJ0ZXN0bmV3Z2NjMjYifQ.nTeZces9c7oltT5ohLiUoUyfBrYxcWmgCXMnqkrznp93yWurisSvqm-cgr0JoGBcZHtxiAvoQsNF116ATHqxj5-3blNkjc8um0ET47g5Qf8-Cv9QcBlL6F62Q_UYZEW6-wxGz3Jwu4IoPboGzVpxP815vCJ91cXKSaesRYumaVR7Ix9ToIAuBdSo-IUR9kJ6fGcXb6ujH4ubUDTytqPGAHyoZj6SptnsSp8yRhs-V_I2peaWzDmzXXSRHlfXTXaaSsDUHW1r4Vb1KqKejV9b7fSQ_8mcpEAGLRFSKbZvbwgSDgB0j6nxE4Qa34AxCqDT13G3NNbhdCgv0mZAX3sWzA",
-    "statusUrl": "https://api.uat.payglocal.in/gl/v1/payments/gl_o-962989f8777c7ff29lo0Yd5X2/status?x-gl-token=eyJpc3N1ZWQtYnkiOiJHbG9jYWwiLCJpcy1kaWdlc3RlZCI6ImZhbHNlIiwiYWxnIjoiUlMyNTYiLCJraWQiOiJrSWQtRU5oN3Y1bLdTNE56YjhScCJ9.eyJ4LWdsLW9yZGVySWQiOiJnbF9vLTk2Mjk4OWY4Nzc3YzdmZjI5bG8wWWQ1WDIiLCJhbXBsaWZpZXItbWlkIjpudWxsLCJpYXQiOiIxNzUzMDg4NzUxNTg1IiwieC1nbC1lbmMiOiJ0cnVlIiwieC1nbC1naWQiOiJnbF85NjI5ODlmODc3N2M3ZmYyNWU5bG8wWWQ1WDIiLCJ4LWdsLW1lcmNoYW50SWQiOiJ0ZXN0bmV3Z2NjMjYifQ.nTeZces9c7oltT5ohLiUoUyfBrYxcWmgCXMnqkrznp93yWurisSvqm-cgr0JoGBcZHtxiAvoQsNF116ATHqxj5-3blNkjc8um0ET47g5Qf8-Cv9QcBlL6F62Q_UYZEW6-wxGz3Jwu4IoPboGzVpxP815vCJ91cXKSaesRYumaVR7Ix9ToIAuBdSo-IUR9kJ6fGcXb6ujH4ubUDTytqPGAHyoZj6SptnsSp8yRhs-V_I2peaWzDmzXXSRHlfXTXaaSsDUHW1r4Vb1KqKejV9b7fSQ_8mcpEAGLRFSKbZvbwgSDgB0j6nxE4Qa34AxCqDT13G3NNbhdCgv0mZAX3sWzA",
-    "merchantTxnId": "1753088750965749238"
-  },
-  "errors": null
-}''',
-    'SI PayDirect_Fixed': '''{
-  "gid": "gl_o-96298b9a848a0553fjo00HwX2",
-  "status": "INPROGRESS",
-  "message": "Transaction Created Successfully",
-  "timestamp": "21/07/2025 14:36:58",
-  "reasonCode": "GL-201-001",
-  "data": {
-    "redirectUrl": "https://api.uat.payglocal.in/gl/payflow-ui/?x-gl-token=eyJpc3N1ZWQtYnkiOiJHbG9jYWwiLCJpcy1kaWdlc3RlZCI6ImZhbHNlIiwiYWxnIjoiUlMyNTYiLCJraWQiOiJrSWQtRU5oN3Y1bLdTNE56YjhScCJ9.eyJ4LWdsLW9yZGVySWQiOiJnbF9vLTk2Mjk4YjlhODQ4YTA1NTNmam8wMEh3WDIiLCJhbXBsaWZpZXItbWlkIjpudWxsLCJpYXQiOiIxNzUzMDg4ODE4NDI3IiwieC1nbC1lbmMiOiJ0cnVlIiwieC1nbC1naWQiOiJnbF85NjI5OGI5YTg0OGEwNTUzNjY5am8wMEh3WDIiLCJ4LWdsLW1lcmNoYW50SWQiOiJ0ZXN0nmV3Z2NjMjYifQ.nVeNEP2ks_ixzcA0hXg-SeyFPv7LWX12q7oVl5WGSqytYzQBPy8H050VvbWWzz1tzizFTPBZf242A3DVhTG6JlS5344toykzxjCxtM4fDZcJpnVT0t6hXycyTx2qbgHlTgFineb8o6MlcQPaO-0XgylebxWfTBconrwLaRbN2CDWJt6yaVALpEbOpziZ8b_Yk1LTALiv_pq_A7j7nK1hl9xDjROCv9Y9b58-gUiO4Li1hUaAaT-GREDMqd0gv_gVeYQ7elG0zeshQeL3_mYamM06ZPRJGLzxKDUPwYK0S8KQBoY_pT7dim8cVV7UTHHKLsOaPG77uHZKJgDwYYz0qg",
-    "statusUrl": "https://api.uat.payglocal.in/gl/v1/payments/gl_o-96298b9a848a0553fjo00HwX2/status?x-gl-token=eyJpc3N1ZWQtYnkiOiJHbG9jYWwiLCJpcy1kaWdlc3RlZCI6ImZhbHNlIiwiYWxnIjoiUlMyNTYiLCJraWQiOiJrSWQtRU5oN3Y1bLdTNE56YjhScCJ9.eyJ4LWdsLW9yZGVySWQiOiJnbF9vLTk2Mjk4YjlhODQ4YTA1NTNmam8wMEh3WDIiLCJhbXBsaWZpZXItbWlkIjpudWxsLCJpYXQiOiIxNzUzMDg4ODE4NDI3IiwieC1nbC1lbmMiOiJ0cnVlIiwieC1nbC1naWQiOiJnbF85NjI5OGI5YTg0OGEwNTUzNjY5am8wMEh3WDIiLCJ4LWdsLW1lcmNoYW50SWQiOiJ0ZXN0nmV3Z2NjMjYifQ.nVeNEP2ks_ixzcA0hXg-SeyFPv7LWX12q7oVl5WGSqytYzQBPy8H050VvbWWzz1tzizFTPBZf242A3DVhTG6JlS5344toykzxjCxtM4fDZcJpnVT0t6hXycyTx2qbgHlTgFineb8o6MlcQPaO-0XgylebxWfTBconrwLaRbN2CDWJt6yaVALpEbOpziZ8b_Yk1LTALiv_pq_A7j7nK1hl9xDjROCv9Y9b58-gUiO4Li1hUaAaT-GREDMqd0gv_gVeYQ7elG0zeshQeL3_mYamM06ZPRJGLzxKDUPwYK0S8KQBoY_pT7dim8cVV7UTHHKLsOaPG77uHZKJgDwYYz0qg",
-    "mandateId": "md_ff793ab6-b4ff-46c7-927e-ac4676ce8ff6",
-    "merchantTxnId": "1753088818061491727"
-  },
-  "errors": null
-}''',
-    'SI PayDirect_Variable': '''{
-  "gid": "gl_o-96298d64204ca90876lc0CJX2",
-  "status": "INPROGRESS",
-  "message": "Transaction Created Successfully",
-  "timestamp": "21/07/2025 14:38:11",
-  "reasonCode": "GL-201-001",
-  "data": {
-    "redirectUrl": "https://api.uat.payglocal.in/gl/payflow-ui/?x-gl-token=eyJpc3N1ZWQtYnkiOiJHbG9jYWwiLCJpcy1kaWdlc3RlZCI6ImZhbHNlIiwiYWxnIjoiUlMyNTYiLCJraWQiOiJrSWQtRU5oN3Y1bLdTNE56YjhScCJ9.eyJ4LWdsLW9yZGVySWQiOiJnbF9vLTk2Mjk4ZDY0MjA0Y2E5MDg3NmxjMENKWDIiLCJhbXBsaWZpZXItbWlkIjpudWxsLCJpYXQiOiIxNzUzMDg4ODkxNjg2IiwieC1nbC1lbmMiOiJ0cnVlIiwieC1nbC1naWQiOiJnbF85NjI5OGQ2NDIwNGNhOTA4MDE4NmxjMENKWDIiLCJ4LWdsLW1lcmNoYW50SWQiOiJ0ZXN0nmV3Z2NjMjYifQ.joY5aWVM7yNvytI5fHl80UE96AaWfjpBBaTIfTFM7jGEGQf-VKS4W0egNvqGUcguDOoJhve7W6SgNv4OesQT-3Q-j1-rLP-ML7Oac39n7mC1U8XwEcu8DVxVIMxAaxU-Gn-O8gB_Dt9REckHf85JNTg2SjIttlqPYeaonS5yFONsJuUeFnGHZ4YWpym7ZaAUxe-aaSVeYtB6u3tfDHeeaxv6vHPIa_3-XS2fM6vNIVY6I2F-3H3TpzIbUOYB7KAlRUrrkUy985jsFtYLdrcS8EeUhqbWYWsjveabYJAkg6y7rKjQeEVwlKrwCn4ReutRPYUibWBnRSHtzhUzgsh5Aw",
-    "statusUrl": "https://api.uat.payglocal.in/gl/v1/payments/gl_o-96298d64204ca90876lc0CJX2/status?x-gl-token=eyJpc3N1ZWQtYnkiOiJHbG9jYWwiLCJpcy1kaWdlc3RlZCI6ImZhbHNlIiwiYWxnIjoiUlMyNTYiLCJraWQiOiJrSWQtRU5oN3Y1bLdTNE56YjhScCJ9.eyJ4LWdsLW9yZGVySWQiOiJnbF9vLTk2Mjk4ZDY0MjA0Y2E5MDg3NmxjMENKWDIiLCJhbXBsaWZpZXItbWlkIjpudWxsLCJpYXQiOiIxNzUzMDg4ODkxNjg2IiwieC1nbC1lbmMiOiJ0cnVlIiwieC1nbC1naWQiOiJnbF85NjI5OGQ2NDIwNGNhOTA4MDE4NmxjMENKWDIiLCJ4LWdsLW1lcmNoYW50SWQiOiJ0ZXN0nmV3Z2NjMjYifQ.joY5aWVM7yNvytI5fHl80UE96AaWfjpBBaTIfTFM7jGEGQf-VKS4W0egNvqGUcguDOoJhve7W6SgNv4OesQT-3Q-j1-rLP-ML7Oac39n7mC1U8XwEcu8DVxVIMxAaxU-Gn-O8gB_Dt9REckHf85JNTg2SjIttlqPYeaonS5yFONsJuUeFnGHZ4YWpym7ZaAUxe-aaSVeYtB6u3tfDHeeaxv6vHPIa_3-XS2fM6vNIVY6I2F-3H3TpzIbUOYB7KAlRUrrkUy985jsFtYLdrcS8EeUhqbWYWsjveabYJAkg6y7rKjQeEVwlKrwCn4ReutRPYUibWBnRSHtzhUzgsh5Aw",
-    "mandateId": "md_79c4147d-000c-450c-8b1c-1bcbc85c0806",
-    "merchantTxnId": "1753088891331898677"
-  },
-  "errors": null
-}''',
-    'Auth & Capture': '''{
-  "gid": "gl_o-9629948614fa8826cej0fn8X2",
-  "status": "INPROGRESS",
-  "message": "Transaction Created Successfully",
-  "timestamp": "21/07/2025 14:43:03",
-  "reasonCode": "GL-201-001",
-  "data": {
-    "redirectUrl": "https://api.uat.payglocal.in/gl/payflow-ui/?x-gl-token=eyJpc3N1ZWQtYnkiOiJHbG9jYWwiLCJpcy1kaWdlc3RlZCI6ImZhbHNlIiwiYWxnIjoiUlMyNTYiLCJraWQiOiJrSWQtRU5oN3Y1bLdTNE56YjhScCJ9.eyJ4LWdsLW9yZGVySWQiOiJnbF9vLTk2Mjk5NDg2MTRmYTg4MjZjZWowZm44WDIiLCJhbXBsaWZpZXItbWlkIjpudWxsLCJpYXQiOiIxNzUzMDg5MTgzODQzIiwieC1nbC1lbmMiOiJ0cnVlIiwieC1nbC1naWQiOiJnbF85NjI5OTQ4NjE0ZmE4ODI2MjZiZWowZm44WDIiLCJ4LWdsLW1lcmNoYW50SWQiOiJ0ZXN0nmV3Z2NjMjYifQ.G1swWlXlDtM46_03GEhSajoX1cGbz150-UbMVVJgmnmQFlSDA4q7gdQtNXUVbQwHQhXaKa1lFyfpaf-V0ASQ5TI0-cqeaUQeCFLwZ-vVWzACRWPIp78OWouavWYvASXRHoBM8HiPes5XpK2DstmRH43exk69xIIvOOh-qNDelLtsHB6odA491E7QGMjDnDvR-IXuR_iFgMv_jVcPgo_AiBZgTLt6A54UDPCCJlO8m_X99-xohpVU-yNSqRD9fJOpCH-_gQekDOaXIxK4hbkKnnpiaIcvQfAGH6xV3adINpSHufErVrTKnKOP61VfysJcI6ZX7JL2a9VmHTHmXUNgRQ",
-    "statusUrl": "https://api.uat.payglocal.in/gl/v1/payments/gl_o-9629948614fa8826cej0fn8X2/status?x-gl-token=eyJpc3N1ZWQtYnkiOiJHbG9jYWwiLCJpcy1kaWdlc3RlZCI6ImZhbHNlIiwiYWxnIjoiUlMyNTYiLCJraWQiOiJrSWQtRU5oN3Y1bLdTNE56YjhScCJ9.eyJ4LWdsLW9yZGVySWQiOiJnbF9vLTk2Mjk5NDg2MTRmYTg4MjZjZWowZm44WDIiLCJhbXBsaWZpZXItbWlkIjpudWxsLCJpYXQiOiIxNzUzMDg5MTgzODQzIiwieC1nbC1lbmMiOiJ0cnVlIiwieC1nbC1naWQiOiJnbF85NjI5OTQ4NjE0ZmE4ODI2MjZiZWowZm44WDIiLCJ4LWdsLW1lcmNoYW50SWQiOiJ0ZXN0nmV3Z2NjMjYifQ.G1swWlXlDtM46_03GEhSajoX1cGbz150-UbMVVJgmnmQFlSDA4q7gdQtNXUVbQwHQhXaKa1lFyfpaf-V0ASQ5TI0-cqeaUQeCFLwZ-vVWzACRWPIp78OWouavWYvASXRHoBM8HiPes5XpK2DstmRH43exk69xIIvOOh-qNDelLtsHB6odA491E7QGMjDnDvR-IXuR_iFgMv_jVcPgo_AiBZgTLt6A54UDPCCJlO8m_X99-xohpVU-yNSqRD9fJOpCH-_gQekDOaXIxK4hbkKnnpiaIcvQfAGH6xV3adINpSHufErVrTKnKOP61VfysJcI6ZX7JL2a9VmHTHmXUNgRQ",
-    "merchantTxnId": "1753089183300784289"
-  },
-  "errors": null
-}'''
-  };
-
-  List<Map<String, String>> payloads = [];
-  RegExp payloadRegex = RegExp(r'```json\n([\s\S]*?)\n```', multiLine: true);
-  Iterable<Match> payloadMatches = payloadRegex.allMatches(updatedDetails);
-  int payloadIndex = 0;
-  for (var match in payloadMatches) {
-    String? payload = match.group(1)?.trim();
-    if (payload != null) {
-      String label;
-      if (widget.title.contains('SI PayDirect')) {
-        label = payloadIndex == 0 ? 'Fixed SI Payload' : 'Variable SI Payload';
-      } else if (widget.title.contains('Auth & Capture')) {
-        if (payloadIndex == 0) {
-          label = 'Authorization Payload';
-        } else {
-          continue; // Skip Capture Payload, Reversal Payload
-        }
-      } else {
-        label = 'Sample Payload';
-      }
-      payloads.add({
-        'content': payload,
-        'label': label,
-      });
-      payloadIndex++;
-    }
-  }
-
-  List<Map<String, String>> endpoints = [];
-  RegExp endpointRegex = RegExp(
-    r'\*\*Copyable Endpoint:\*\* `(.*?)(?<!\\)`',
-    multiLine: true,
-  );
-  Iterable<Match> endpointMatches = endpointRegex.allMatches(updatedDetails);
-  int endpointIndex = 0;
-  for (var match in endpointMatches) {
-    String? endpoint = match.group(1)?.trim();
-    if (endpoint != null) {
-      String label;
-      if (widget.title.contains('SI PayDirect')) {
-        label = 'SI Endpoint';
-      } else if (widget.title.contains('Auth & Capture')) {
-        if (endpointIndex == 0) {
-          label = 'Authorization Endpoint';
-        } else {
-          continue; // Skip Capture Endpoint, Reversal Endpoint
-        }
-      } else {
-        label = 'Endpoint';
-      }
-      endpoints.add({
-        'content': endpoint,
-        'label': label,
-      });
-      endpointIndex++;
-    }
-  }
-
-  List<Widget> contentWidgets = [];
-  final lines = updatedDetails.split('\n');
-  bool inCodeBlock = false;
-
-  for (var line in lines) {
-    line = line.trim();
-    if (line.isEmpty) {
-      contentWidgets.add(const SizedBox(height: 8));
-      continue;
-    }
-
-    if (line.startsWith('```json')) {
-      inCodeBlock = true;
-      continue;
-    } else if (line.startsWith('```')) {
-      inCodeBlock = false;
-      continue;
-    } else if (inCodeBlock) {
-      continue;
-    }
-
-    if (line.startsWith('**') &&
-        line.endsWith('**') &&
-        !line.startsWith('**Copyable Endpoint:**')) {
-      contentWidgets.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: Text(
-            line.substring(2, line.length - 2),
-            style: GoogleFonts.poppins(
-              fontSize: titleFontSize,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF111827),
-            ),
-          ),
-        ),
-      );
-    } else if (line.startsWith('- ')) {
-      contentWidgets.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: 4.0, left: 8.0),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.check_circle,
-                size: isLargeScreen ? 16 : 14,
-                color: widget.badgeColor,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  line.substring(2),
-                  style: GoogleFonts.poppins(
-                    fontSize: bodyFontSize,
-                    color: const Color(0xFF4B5563),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    } else if (line.startsWith('*') && line.endsWith('*')) {
-      contentWidgets.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: Text(
-            line.substring(1, line.length - 1),
-            style: GoogleFonts.poppins(
-              fontSize: bodyFontSize,
-              fontStyle: FontStyle.italic,
-              color: const Color(0xFF4B5563),
-            ),
-          ),
-        ),
-      );
-    } else if (!line.startsWith('**Copyable Endpoint:**')) {
-      contentWidgets.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: Text(
-            line,
-            style: GoogleFonts.poppins(
-              fontSize: bodyFontSize,
-              color: const Color(0xFF4B5563),
-            ),
-          ),
-        ),
-      );
-    }
-  }
-
-  for (var endpoint in endpoints) {
-    contentWidgets.add(
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              endpoint['label']!,
-              style: GoogleFonts.poppins(
-                fontSize: titleFontSize,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF111827),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12.0),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
-              ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Text(
-                  endpoint['content']!,
-                  style: GoogleFonts.robotoMono(
-                    fontSize: codeFontSize,
-                    color: const Color(0xFF1F2937),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                AnimatedScale(
-                  scale: _isHovered ? 1.05 : 1.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Clipboard.setData(
-                        ClipboardData(text: endpoint['content']!),
-                      )
-                          .then((_) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Endpoint copied to clipboard'),
-                          ),
-                        );
-                      }).catchError((e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Failed to copy endpoint'),
-                          ),
-                        );
-                      });
-                    },
-                    icon: Icon(
-                      Icons.copy,
-                      size: isLargeScreen ? 16 : 14,
-                      color: Colors.white,
-                    ),
-                    label: Text(
-                      'Copy ${endpoint['label']}',
-                      style: GoogleFonts.poppins(
-                        fontSize: isLargeScreen ? 14 : 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: widget.badgeColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      elevation: 2,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  for (var payload in payloads) {
-    bool isCopyable = widget.title == 'JWT PayDirect' ||
-        (widget.title == 'Auth & Capture' && payload['label'] == 'Authorization Payload');
-    contentWidgets.add(
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              payload['label']!,
-              style: GoogleFonts.poppins(
-                fontSize: titleFontSize,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF111827),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12.0),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
-              ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Text(
-                  payload['content']!,
-                  style: GoogleFonts.robotoMono(
-                    fontSize: codeFontSize,
-                    color: const Color(0xFF1F2937),
-                  ),
-                ),
-              ),
-            ),
-            if (isCopyable) ...[
-              const SizedBox(height: 8),
+              // Icon and badge
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  AnimatedScale(
-                    scale: _isHovered ? 1.05 : 1.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Clipboard.setData(
-                          ClipboardData(text: payload['content']!),
-                        )
-                            .then((_) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${payload['label']} copied to clipboard'),
-                            ),
-                          );
-                        }).catchError((e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to copy payload'),
-                            ),
-                          );
-                        });
-                      },
-                      icon: Icon(
-                        Icons.copy,
-                        size: isLargeScreen ? 16 : 14,
-                        color: Colors.white,
-                      ),
-                      label: Text(
-                        'Copy ${payload['label']}',
-                        style: GoogleFonts.poppins(
-                          fontSize: isLargeScreen ? 14 : 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: widget.badgeColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        elevation: 2,
-                      ),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: widget.color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      widget.icon,
+                      size: 32,
+                      color: widget.color,
                     ),
                   ),
                 ],
               ),
-            ],
-            // Add response below the payload
-            if (widget.title == 'JWT PayDirect' && payload['label'] == 'Sample Payload' ||
-                (widget.title == 'SI PayDirect' &&
-                    (payload['label'] == 'Fixed SI Payload' || payload['label'] == 'Variable SI Payload')) ||
-                (widget.title == 'Auth & Capture' && payload['label'] == 'Authorization Payload')) ...[
               const SizedBox(height: 16),
+
+              // Title
               Text(
-                widget.title == 'SI PayDirect'
-                    ? (payload['label'] == 'Fixed SI Payload'
-                        ? 'Fixed SI Response'
-                        : 'Variable SI Response')
-                    : '${payload['label']} Response',
-                style: GoogleFonts.poppins(
-                  fontSize: titleFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF111827),
+                widget.title,
+                style: GoogleFonts.inter(
+                  fontSize: widget.isMobile ? 18 : 20,
+                  fontWeight: FontWeight.w700,
+                  color: widget.isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12.0),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Text(
-                    responses[
-                        widget.title == 'SI PayDirect'
-                            ? '${widget.title}_${payload['label'] == 'Fixed SI Payload' ? 'Fixed' : 'Variable'}'
-                            : widget.title]!,
-                    style: GoogleFonts.robotoMono(
-                      fontSize: codeFontSize,
-                      color: const Color(0xFF1F2937),
-                    ),
-                  ),
-                ),
-              ),
-              if (isCopyable) ...[
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    AnimatedScale(
-                      scale: _isHovered ? 1.05 : 1.0,
-                      duration: const Duration(milliseconds: 200),
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Clipboard.setData(
-                            ClipboardData(
-                              text: responses[
-                                  widget.title == 'SI PayDirect'
-                                      ? '${widget.title}_${payload['label'] == 'Fixed SI Payload' ? 'Fixed' : 'Variable'}'
-                                      : widget.title]!,
-                            ),
-                          )
-                              .then((_) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '${payload['label']} Response copied to clipboard',
-                                ),
-                              ),
-                            );
-                          }).catchError((e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Failed to copy response'),
-                              ),
-                            );
-                          });
-                        },
-                        icon: Icon(
-                          Icons.copy,
-                          size: isLargeScreen ? 16 : 14,
-                          color: Colors.white,
-                        ),
-                        label: Text(
-                          'Copy ${payload['label']} Response',
-                          style: GoogleFonts.poppins(
-                            fontSize: isLargeScreen ? 14 : 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: widget.badgeColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          elevation: 2,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-  contentWidgets.add(const SizedBox(height: 12));
-  if (widget.route == '/paydirect-jwt-detail') {
-    contentWidgets.add(
-      Align(
-        alignment: Alignment.centerLeft,
-        child: OutlinedButton.icon(
-          onPressed: () {
-            Navigator.pushNamed(context, '/services/jwt');
-          },
-          icon: const Icon(Icons.menu_book, size: 16),
-          label: const Text('View JWT Services'),
-        ),
-      ),
-    );
-  }
 
-  showDialog(
-    context: context,
-    builder: (context) {
-      return FadeTransition(
-        opacity: _dialogFadeAnimation,
-        child: ScaleTransition(
-          scale: _dialogScaleAnimation,
-          child: AlertDialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            contentPadding: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            content: Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFF9FAFB), Color(0xFFE5E7EB)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+              // Description
+              Text(
+                widget.description,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: widget.isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  height: 1.5,
                 ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: EdgeInsets.all(padding),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 16),
+
+              // Benefits
+              ...widget.benefits.map((benefit) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          size: 16,
+                          color: widget.color,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            benefit,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: widget.isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+              const SizedBox(height: 16),
+
+              // Action button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, widget.route);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: widget.color,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: _isHovered ? 4 : 0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: widget.badgeColor.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              widget.icon,
-                              size: iconSize,
-                              color: widget.badgeColor,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              widget.title,
-                              style: GoogleFonts.poppins(
-                                fontSize: isLargeScreen ? 20 : 18,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF111827),
-                              ),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Learn More',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      ...contentWidgets,
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_forward, size: 16),
                     ],
                   ),
                 ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  'Close',
-                  style: GoogleFonts.poppins(
-                    fontSize: isLargeScreen ? 14 : 12,
-                    color: const Color(0xFF4B5563),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              AnimatedScale(
-                scale: _isHovered ? 1.05 : 1.0,
-                duration: const Duration(milliseconds: 200),
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    try {
-                      Navigator.pushNamed(context, widget.route);
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${widget.route} route not found'),
-                        ),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3B82F6),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    elevation: 2,
-                  ),
-                  child: Text(
-                    'Try Now',
-                    style: GoogleFonts.poppins(
-                      fontSize: isLargeScreen ? 13 : 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
-      );
-    },
-  );
-}
-
+      ),
+    );
+  }
 }

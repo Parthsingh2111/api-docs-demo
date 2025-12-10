@@ -73,7 +73,7 @@ class _WebhooksScreenState extends State<WebhooksScreen>
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1200),
-                  child: FadeTransition(
+              child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

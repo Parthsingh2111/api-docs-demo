@@ -1,136 +1,715 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/premium_app_bar.dart';
-import '../widgets/premium_card.dart';
-import '../widgets/premium_button.dart';
 import '../theme/app_theme.dart';
+import '../navigation/app_router.dart';
+import '../widgets/breadcrumb_navigation.dart';
+import '../widgets/smart_back_button.dart';
+import '../widgets/scroll_to_top_button.dart';
+import 'merchant_product_interface.dart';
 
 class PayDirectJwtDetailScreen extends StatefulWidget {
   const PayDirectJwtDetailScreen({super.key});
 
   @override
-  _PayDirectJwtDetailScreenState createState() => _PayDirectJwtDetailScreenState();
+  State<PayDirectJwtDetailScreen> createState() => _PayDirectJwtDetailScreenState();
 }
 
 class _PayDirectJwtDetailScreenState extends State<PayDirectJwtDetailScreen>
     with TickerProviderStateMixin {
-  late AnimationController _fadeController;
-  late Animation<double> _fadeAnimation;
-  final ScrollController _scrollController = ScrollController();
+  // State management
+  String _activeSection = 'overview';
+
+  // Controllers
+  final ScrollController _contentScrollController = ScrollController();
+  final Map<String, GlobalKey> _sectionKeys = {};
+
+  // Debouncing for smooth scroll detection
+  DateTime? _lastScrollUpdate;
+  Timer? _scrollDebounceTimer;
 
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    )..forward();
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeOut,
-    );
+    _initializeSectionKeys();
+    _contentScrollController.addListener(_onContentScrollDebounced);
+  }
+
+  void _onContentScrollDebounced() {
+    _scrollDebounceTimer?.cancel();
+    _scrollDebounceTimer = Timer(const Duration(milliseconds: 100), () {
+      if (mounted && _contentScrollController.hasClients) {
+      _onContentScroll();
+      }
+    });
+  }
+
+  void _initializeSectionKeys() {
+    final sections = [
+      'overview',
+      // Payment Initiation
+      'api-payment-initiate',
+      // Transaction Management
+      'api-status-check',
+      'api-refund-partial',
+      'api-refund-full',
+      'product-demo',
+    ];
+    for (var section in sections) {
+      _sectionKeys[section] = GlobalKey();
+    }
+  }
+
+  void _onContentScroll() {
+    // Check if widget is still mounted and controller is attached
+    if (!mounted || !_contentScrollController.hasClients) {
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastScrollUpdate != null &&
+        now.difference(_lastScrollUpdate!).inMilliseconds < 150) {
+      return;
+    }
+    _lastScrollUpdate = now;
+
+    String? newActiveSection;
+    double closestDistance = double.infinity;
+
+    for (var entry in _sectionKeys.entries) {
+      final key = entry.value;
+      final context = key.currentContext;
+
+      if (context == null || !mounted) continue;
+
+        try {
+        final renderObject = context.findRenderObject();
+
+        // More strict type checking to prevent casting errors
+        if (renderObject == null) continue;
+        if (renderObject is! RenderBox) continue;
+        if (!renderObject.hasSize) continue;
+        if (!renderObject.attached) continue; // Check if attached to render tree
+
+        final position = renderObject.localToGlobal(Offset.zero);
+            final distance = (position.dy - 100).abs();
+
+            if (distance < closestDistance) {
+              closestDistance = distance;
+              newActiveSection = entry.key;
+          }
+        } catch (e) {
+        // Silently skip sections that can't be measured during layout
+        continue;
+      }
+    }
+
+    // Update active section only if mounted and changed
+    if (mounted && newActiveSection != null && newActiveSection != _activeSection) {
+      setState(() {
+        _activeSection = newActiveSection!;
+      });
+    }
   }
 
   @override
   void dispose() {
-    _fadeController.dispose();
-    _scrollController.dispose();
+    _scrollDebounceTimer?.cancel();
+    _contentScrollController.removeListener(_onContentScrollDebounced);
+    _contentScrollController.dispose();
     super.dispose();
   }
 
-  void _copyToClipboard(String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label copied to clipboard!'),
-        duration: const Duration(seconds: 2),
-        backgroundColor: AppTheme.success,
-      ),
-    );
+  void _scrollToSection(String sectionId) {
+    final key = _sectionKeys[sectionId];
+    if (key?.currentContext != null) {
+    setState(() {
+        _activeSection = sectionId;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          Scrollable.ensureVisible(
+            key!.currentContext!,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+            alignment: 0.1,
+          );
+        } catch (e) {
+          // Fallback to manual scroll
+        }
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
-    final isLargeScreen = screenWidth > 1024;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDesktop = screenWidth > 1200;
+    final isTablet = screenWidth > 768 && screenWidth <= 1200;
 
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.darkBackground : const Color(0xFFF8FAFC),
-      appBar: const PremiumAppBar(
-        title: 'JWT Authentication - PayDirect',
-      ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          padding: EdgeInsets.all(
-            isLargeScreen ? AppTheme.spacing32 : AppTheme.spacing16,
+      backgroundColor: isDark ? AppTheme.darkBackground : const Color(0xFFFAFBFC),
+      appBar: _buildAppBar(isDark, isDesktop),
+      drawer: !isDesktop ? _buildDrawer(isDark) : null,
+      body: Stack(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left Panel (Desktop only)
+              if (isDesktop) _buildLeftPanel(isDark),
+
+              // Main Content Area
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Breadcrumb Navigation
+                    if (isDesktop)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        child: BreadcrumbNavigation(
+                          items: [
+                            BreadcrumbItem(
+                              label: 'Home',
+                              route: '/',
+                              onTap: () => Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                '/',
+                                (route) => route.isFirst,
+                              ),
+                            ),
+                            BreadcrumbItem(
+                              label: 'PayDirect',
+                              route: '/paydirect',
+                              onTap: () => Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                '/paydirect',
+                                (route) => route.settings.name == '/paydirect' || route.isFirst,
+                              ),
+                            ),
+                            const BreadcrumbItem(
+                              label: 'JWT Authentication',
+                            ),
+                          ],
+                        ),
+                      ),
+                    Expanded(child: _buildContentPanel(isDark, isDesktop, isTablet)),
+                  ],
+                ),
+              ),
+            ],
           ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
+          // Scroll to Top Button
+          ScrollToTopButton(scrollController: _contentScrollController),
+        ],
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(bool isDark, bool isDesktop) {
+    return AppBar(
+      leading: isDesktop
+          ? null
+          : Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+      automaticallyImplyLeading: false,
+      title: Row(
+        children: [
+          if (isDesktop) ...[
+            SmartBackButton(
+              parentPageName: 'PayDirect',
+              parentRoute: AppRouter.paydirect,
+              showLabel: false,
+            ),
+            const SizedBox(width: 12),
+          ],
+          Icon(Icons.security, color: AppTheme.info, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'JWT Authentication',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+      elevation: 0,
+      actions: [
+        // API Reference Button
+        ElevatedButton.icon(
+          onPressed: () {
+            // Navigate to API Reference, but allow back to return here
+            Navigator.pushNamed(context, AppRouter.paydirectApiReferenceJwt);
+          },
+          icon: const Icon(Icons.code, size: 18),
+          label: Text(
+            'API Reference',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.accent,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          height: 1,
+          color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeftPanel(bool isDark) {
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        border: Border(
+          right: BorderSide(
+            color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB),
+            width: 1,
+          ),
+        ),
+      ),
+      child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  children: [
+                    // Overview
+                    _buildNavItem(isDark, 'Overview', 'overview', Icons.info_outline),
+                    const SizedBox(height: 8),
+
+                    // Payment Initiation Category
+                    _buildCategoryHeader(isDark, 'PAYMENT INITIATION', Icons.rocket_launch),
+                    _buildNavItem(isDark, 'Payment Initiate', 'api-payment-initiate', Icons.payment),
+                    const SizedBox(height: 8),
+
+                    // Transaction Management Category
+                    _buildCategoryHeader(isDark, 'TRANSACTION MANAGEMENT', Icons.receipt_long),
+                    _buildNavItem(isDark, 'Status Check', 'api-status-check', Icons.info),
+                    _buildNavItem(isDark, 'Partial Refund', 'api-refund-partial', Icons.pie_chart),
+                    _buildNavItem(isDark, 'Full Refund', 'api-refund-full', Icons.check_circle),
+                    const SizedBox(height: 16),
+
+                    // Product Demo
+                    _buildCategoryHeader(isDark, 'PRODUCT DEMO', Icons.play_circle_outline),
+                    _buildNavItem(isDark, 'Try Demo', 'product-demo', Icons.shopping_cart),
+                  ],
+                ),
+    );
+  }
+
+  Widget _buildDrawer(bool isDark) {
+    return Drawer(
+      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkBackground : const Color(0xFFFAFAFA),
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB),
+                ),
+              ),
+            ),
+            child: SafeArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Hero Section
-                  _buildHeroSection(context, isLargeScreen, isDark),
-                  const SizedBox(height: AppTheme.spacing48),
-
-                  // What is JWT Authentication
-                  _buildWhatIsSection(context, isLargeScreen, isDark),
-                  const SizedBox(height: AppTheme.spacing48),
-
-                  // Why Use JWT Authentication
-                  _buildWhyUseSection(context, isLargeScreen, isDark),
-                  const SizedBox(height: AppTheme.spacing48),
-
-                  // When to Use
-                  _buildWhenToUseSection(context, isLargeScreen, isDark),
-                  const SizedBox(height: AppTheme.spacing48),
-
-                  // Key Features
-                  _buildKeyFeaturesSection(context, isLargeScreen, isDark),
-                  const SizedBox(height: AppTheme.spacing48),
-
-                  // API Reference
-                  _buildApiReferenceSection(context, isLargeScreen, isDark),
-                  const SizedBox(height: AppTheme.spacing48),
-
-                  // Try Demo CTA
-                  _buildTryDemoCTA(context, isLargeScreen),
+                  Row(
+                    children: [
+                      Icon(Icons.security, color: AppTheme.info, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'JWT Authentication',
+                              style: GoogleFonts.inter(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              'API Documentation',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: isDark ? Colors.white60 : Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.pop(context),
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              children: [
+                _buildNavItem(isDark, 'Overview', 'overview', Icons.info_outline, closeDrawerOnTap: true),
+                const SizedBox(height: 8),
+
+                _buildCategoryHeader(isDark, 'PAYMENT INITIATION', Icons.rocket_launch),
+                _buildNavItem(isDark, 'Payment Initiate', 'api-payment-initiate', Icons.payment, closeDrawerOnTap: true),
+                const SizedBox(height: 8),
+
+                _buildCategoryHeader(isDark, 'TRANSACTION MANAGEMENT', Icons.receipt_long),
+                _buildNavItem(isDark, 'Status Check', 'api-status-check', Icons.info, closeDrawerOnTap: true),
+                _buildNavItem(isDark, 'Partial Refund', 'api-refund-partial', Icons.pie_chart, closeDrawerOnTap: true),
+                _buildNavItem(isDark, 'Full Refund', 'api-refund-full', Icons.check_circle, closeDrawerOnTap: true),
+                const SizedBox(height: 16),
+
+                // Product Demo
+                _buildCategoryHeader(isDark, 'PRODUCT DEMO', Icons.play_circle_outline),
+                _buildNavItem(isDark, 'Try Demo', 'product-demo', Icons.shopping_cart, closeDrawerOnTap: true),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryHeader(bool isDark, String title, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.accent.withOpacity(isDark ? 0.1 : 0.05),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: AppTheme.accent,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.accent,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem(
+    bool isDark,
+    String label,
+    String sectionId,
+    IconData icon, {
+    bool closeDrawerOnTap = false,
+  }) {
+    final isActive = _activeSection == sectionId;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          _scrollToSection(sectionId);
+          if (closeDrawerOnTap && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+        },
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppTheme.accent.withOpacity(isDark ? 0.2 : 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+            border: Border(
+              left: BorderSide(
+                color: isActive ? AppTheme.accent : Colors.transparent,
+                width: 3,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isActive
+                    ? AppTheme.accent
+                    : (isDark ? Colors.white60 : Colors.black54),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    color: isActive
+                        ? (isDark ? Colors.white : Colors.black87)
+                        : (isDark ? Colors.white70 : Colors.black54),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeroSection(BuildContext context, bool isLargeScreen, bool isDark) {
-    final theme = Theme.of(context);
 
-    return Container(
-      padding: EdgeInsets.all(
-        isLargeScreen ? AppTheme.spacing48 : AppTheme.spacing32,
+  Widget _buildContentPanel(bool isDark, bool isDesktop, bool isTablet) {
+    return SingleChildScrollView(
+      controller: _contentScrollController,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1400),
+        padding: EdgeInsets.symmetric(horizontal: isDesktop ? 32 : 24, vertical: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Overview Section
+            Container(key: _sectionKeys['overview']),
+            _buildOverviewSection(isDark),
+            const SizedBox(height: 48),
+
+            Divider(height: 1, color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB)),
+            const SizedBox(height: 40),
+
+            // PAYMENT INITIATION
+            _buildSectionCategoryHeader(isDark, 'PAYMENT INITIATION', Icons.rocket_launch, AppTheme.accent),
+            const SizedBox(height: 24),
+
+            Container(key: _sectionKeys['api-payment-initiate']),
+            _buildApiPaymentInitiateInfo(isDark),
+            const SizedBox(height: 48),
+
+            Divider(height: 1, color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB)),
+            const SizedBox(height: 40),
+
+            // TRANSACTION MANAGEMENT
+            _buildSectionCategoryHeader(isDark, 'TRANSACTION MANAGEMENT', Icons.receipt_long, const Color(0xFFF59E0B)),
+            const SizedBox(height: 24),
+
+            Container(key: _sectionKeys['api-status-check']),
+            _buildApiStatusCheckInfo(isDark),
+            const SizedBox(height: 32),
+
+            Container(key: _sectionKeys['api-refund-partial']),
+            _buildApiPartialRefundInfo(isDark),
+            const SizedBox(height: 32),
+
+            Container(key: _sectionKeys['api-refund-full']),
+            _buildApiFullRefundInfo(isDark),
+            const SizedBox(height: 48),
+
+            Divider(height: 1, color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB)),
+            const SizedBox(height: 40),
+
+            // PRODUCT DEMO
+            Container(key: _sectionKeys['product-demo']),
+            _buildProductDemoSection(isDark),
+            const SizedBox(height: 48),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildSectionCategoryHeader(bool isDark, String title, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppTheme.info.withOpacity(0.1),
-            AppTheme.accent.withOpacity(0.05),
+            color.withOpacity(isDark ? 0.15 : 0.1),
+            color.withOpacity(isDark ? 0.05 : 0.03),
           ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? AppTheme.darkBorder : AppTheme.borderLight,
+          color: color.withOpacity(0.3),
           width: 1,
         ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              size: 24,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : Colors.black87,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverviewSection(bool isDark) {
+    return _buildBusinessInfoSection(
+      isDark: isDark,
+      icon: Icons.info_outline,
+      iconColor: AppTheme.info,
+      title: 'JWT Authentication - Overview',
+      description: 'JWT (JSON Web Token) authentication for PayDirect enables PCI DSS certified merchants to securely process direct payments with card data collection on their own interface. You maintain full control over the payment flow while PayGlocal handles secure processing.',
+      keyPoints: [
+        'Direct card data collection on your own interface',
+        'Full control over payment experience and UI',
+        'Requires PCI DSS certification',
+        'Secure JWT-based token authentication',
+        'Real-time transaction status tracking',
+        'Support for full and partial refunds',
+      ],
+    );
+  }
+
+  Widget _buildApiPaymentInitiateInfo(bool isDark) {
+    return _buildBusinessInfoSection(
+      isDark: isDark,
+      icon: Icons.payment,
+      iconColor: AppTheme.success,
+      title: 'Payment Initiate',
+      description: 'Initiate a direct payment transaction where you collect card details on your own interface. This API processes the payment directly without any redirect, giving you complete control over the customer experience. Best for PCI DSS compliant merchants.',
+      keyPoints: [
+        'Collect card data directly on your interface',
+        'Process payments without customer redirect',
+        'Full customization of payment UI/UX',
+        'Immediate capture upon successful authorization',
+        'Returns Global ID (gid) for transaction tracking',
+        'Webhook notification sent to your callback URL',
+      ],
+    );
+  }
+
+  Widget _buildApiStatusCheckInfo(bool isDark) {
+    return _buildBusinessInfoSection(
+      isDark: isDark,
+      icon: Icons.info,
+      iconColor: AppTheme.info,
+      title: 'Status Check',
+      description: 'Check the current status of any payment transaction using its Global ID (gid). This API provides real-time transaction status, payment method used, amount details, and complete transaction history.',
+      keyPoints: [
+        'Real-time transaction status updates',
+        'Returns payment method and amount details',
+        'Includes authorization codes and timestamps',
+        'Shows complete transaction lifecycle',
+        'Essential for reconciliation and reporting',
+        'Can be called multiple times without side effects',
+      ],
+    );
+  }
+
+
+  Widget _buildApiPartialRefundInfo(bool isDark) {
+    return _buildBusinessInfoSection(
+      isDark: isDark,
+      icon: Icons.pie_chart,
+      iconColor: AppTheme.warning,
+      title: 'Partial Refund',
+      description: 'Refund a specific amount from a completed transaction. This is useful when you need to return only a portion of the payment, such as for partial order cancellations or discounts applied after payment.',
+      keyPoints: [
+        'Refund any amount up to the original transaction amount',
+        'Multiple partial refunds allowed until full amount is refunded',
+        'Requires refundType "P" and paymentData.totalAmount',
+        'Each refund requires a unique merchantTxnId',
+        'Refund typically processes within 5-7 business days',
+        'Webhook notification sent upon refund completion',
+      ],
+    );
+  }
+
+  Widget _buildApiFullRefundInfo(bool isDark) {
+    return _buildBusinessInfoSection(
+      isDark: isDark,
+      icon: Icons.check_circle,
+      iconColor: AppTheme.success,
+      title: 'Full Refund',
+      description: 'Refund the entire transaction amount in one operation. This is the quickest way to process a complete refund for order cancellations or returns.',
+      keyPoints: [
+        'Refunds the complete original transaction amount',
+        'Requires refundType "F" only, no amount needed',
+        'Simpler payload than partial refund',
+        'Only one full refund allowed per transaction',
+        'Refund typically processes within 5-7 business days',
+        'Webhook notification sent upon refund completion',
+      ],
+    );
+  }
+
+  Widget _buildProductDemoSection(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,46 +717,36 @@ class _PayDirectJwtDetailScreenState extends State<PayDirectJwtDetailScreen>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(AppTheme.spacing20),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppTheme.info,
-                      AppTheme.info.withOpacity(0.7),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.info.withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  color: AppTheme.accent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  Icons.lock_outline,
-                  size: isLargeScreen ? 48 : 40,
-                  color: Colors.white,
+                  Icons.play_circle_outline,
+                  size: 28,
+                  color: AppTheme.accent,
                 ),
               ),
-              const SizedBox(width: AppTheme.spacing16),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'JWT Authentication',
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.info,
+                      'Product Demo',
+                      style: GoogleFonts.inter(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: AppTheme.spacing8),
+                    const SizedBox(height: 4),
                     Text(
-                      'PayDirect',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      'Experience PayDirect JWT Authentication in action',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: isDark ? Colors.white70 : Colors.black54,
                       ),
                     ),
                   ],
@@ -185,643 +754,48 @@ class _PayDirectJwtDetailScreenState extends State<PayDirectJwtDetailScreen>
               ),
             ],
           ),
-          const SizedBox(height: AppTheme.spacing24),
+          const SizedBox(height: 24),
           Text(
-            'Secure Payment Initiation with JWE/JWS Encryption',
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacing16),
-          Text(
-            'JWT (JSON Web Token) Authentication for PayDirect enables PCI DSS certified merchants to securely process direct payments with card data collection on their own interface. Perfect for enterprises requiring maximum control and security.',
-            style: theme.textTheme.bodyLarge?.copyWith(
+            'Try our interactive demo to see how PayDirect JWT Authentication works in a real e-commerce scenario. Experience the complete payment flow with direct card data collection on your own interface.',
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              color: isDark ? Colors.white70 : Colors.black87,
               height: 1.6,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWhatIsSection(BuildContext context, bool isLargeScreen, bool isDark) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'What is JWT Authentication?',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: AppTheme.spacing16),
-        PremiumCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'JWT Authentication is a secure method of payment initiation that uses JSON Web Encryption (JWE) and JSON Web Signature (JWS) to protect sensitive payment data during transmission.',
-                style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
-              ),
-              const SizedBox(height: AppTheme.spacing16),
-              Text(
-                'When you initiate a payment using JWT Authentication:',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  height: 1.6,
-                  fontWeight: FontWeight.w600,
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const clothingMerchantInterface(isPayDirect: true),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              const SizedBox(height: AppTheme.spacing12),
-              _buildBulletPoint('Your payment data is encrypted using PayGlocal\'s public key (JWE)', isDark),
-              _buildBulletPoint('The encrypted data is then signed with your private key (JWS)', isDark),
-              _buildBulletPoint('PayGlocal validates the signature and decrypts the data', isDark),
-              _buildBulletPoint('This ensures data confidentiality, integrity, and non-repudiation', isDark),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWhyUseSection(BuildContext context, bool isLargeScreen, bool isDark) {
-    final theme = Theme.of(context);
-
-    final reasons = [
-      {
-        'icon': Icons.security,
-        'title': 'Maximum Security',
-        'description': 'Dual-layer encryption with JWE and JWS provides military-grade security for your payment data.',
-      },
-      {
-        'icon': Icons.verified_user,
-        'title': 'Data Integrity',
-        'description': 'Digital signatures ensure that payment data cannot be tampered with during transmission.',
-      },
-      {
-        'icon': Icons.shield,
-        'title': 'Non-Repudiation',
-        'description': 'Cryptographic signatures prove the authenticity and origin of each payment request.',
-      },
-      {
-        'icon': Icons.privacy_tip,
-        'title': 'Confidentiality',
-        'description': 'End-to-end encryption ensures that sensitive payment data remains private and secure.',
-      },
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Why Use JWT Authentication?',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: AppTheme.spacing24),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: isLargeScreen ? 2 : 1,
-            crossAxisSpacing: AppTheme.spacing16,
-            mainAxisSpacing: AppTheme.spacing16,
-            childAspectRatio: isLargeScreen ? 2.5 : 3,
-          ),
-          itemCount: reasons.length,
-          itemBuilder: (context, index) {
-            final reason = reasons[index];
-            return PremiumCard(
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppTheme.spacing12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.info.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                    ),
-                    child: Icon(
-                      reason['icon'] as IconData,
-                      size: 28,
-                      color: AppTheme.info,
-                    ),
-                  ),
-                  const SizedBox(width: AppTheme.spacing16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          reason['title'] as String,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: AppTheme.spacing8),
-                        Text(
-                          reason['description'] as String,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWhenToUseSection(BuildContext context, bool isLargeScreen, bool isDark) {
-    final theme = Theme.of(context);
-
-    final useCases = [
-      {
-        'title': 'High-Security Payment Integrations',
-        'description': 'When your business handles sensitive financial data and requires the highest level of security compliance.',
-        'icon': Icons.account_balance,
-      },
-      {
-        'title': 'Enterprise Payment Processing',
-        'description': 'Large-scale merchants who need robust authentication and security for high-value transactions.',
-        'icon': Icons.business,
-      },
-      {
-        'title': 'Regulated Industries',
-        'description': 'Financial services, healthcare, and other industries with strict data protection requirements.',
-        'icon': Icons.policy,
-      },
-      {
-        'title': 'API-First Integration',
-        'description': 'Merchants who want advanced API access with cryptographic authentication across all PayGlocal services.',
-        'icon': Icons.api,
-      },
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'When to Use JWT Authentication?',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: AppTheme.spacing24),
-        ...useCases.map((useCase) => Padding(
-          padding: const EdgeInsets.only(bottom: AppTheme.spacing16),
-          child: PremiumCard(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(AppTheme.spacing12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.info.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                  ),
-                  child: Icon(
-                    useCase['icon'] as IconData,
-                    size: 24,
-                    color: AppTheme.info,
-                  ),
-                ),
-                const SizedBox(width: AppTheme.spacing16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        useCase['title'] as String,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: AppTheme.spacing8),
-                      Text(
-                        useCase['description'] as String,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        )),
-      ],
-    );
-  }
-
-  Widget _buildKeyFeaturesSection(BuildContext context, bool isLargeScreen, bool isDark) {
-    final theme = Theme.of(context);
-
-    final features = [
-      'JWE (JSON Web Encryption) using RSA-OAEP-256 algorithm',
-      'JWS (JSON Web Signature) using RS256 algorithm',
-      'Asymmetric key cryptography for maximum security',
-      'Compatible with all PayGlocal APIs and endpoints',
-      'x-gl-token-external header for secure token transmission',
-      'Automatic key rotation and management support',
-      'RFC 7519 compliant JWT implementation',
-      'SDK support for Node.js, Java, PHP, and C#',
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Key Features',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: AppTheme.spacing24),
-        PremiumCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: features
-                .map((feature) => Padding(
-                      padding: const EdgeInsets.only(bottom: AppTheme.spacing16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.check_circle,
-                            size: 24,
-                            color: AppTheme.success,
-                          ),
-                          const SizedBox(width: AppTheme.spacing12),
-                          Expanded(
-                            child: Text(
-                              feature,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                height: 1.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ))
-                .toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildApiReferenceSection(BuildContext context, bool isLargeScreen, bool isDark) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'API Reference',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: AppTheme.spacing24),
-
-        // Endpoint Section
-        PremiumCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.link, color: AppTheme.info, size: 24),
-                  const SizedBox(width: AppTheme.spacing12),
+                  const Icon(Icons.play_arrow, size: 20),
+                  const SizedBox(width: 8),
                   Text(
-                    'Payment Initiation Endpoint',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    'Launch Product Demo',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: AppTheme.spacing16),
-              Container(
-                padding: const EdgeInsets.all(AppTheme.spacing16),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkSurface : const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                  border: Border.all(
-                    color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.spacing12,
-                        vertical: AppTheme.spacing8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.success.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSM),
-                      ),
-                      child: Text(
-                        'POST',
-                        style: GoogleFonts.robotoMono(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.success,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppTheme.spacing12),
-                    Expanded(
-                      child: Text(
-                        '/gl/v1/payments/initiate',
-                        style: GoogleFonts.robotoMono(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.copy, size: 20),
-                      onPressed: () => _copyToClipboard(
-                        '/gl/v1/payments/initiate',
-                        'Endpoint',
-                      ),
-                      tooltip: 'Copy endpoint',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppTheme.spacing16),
-                Text(
-                'This endpoint initiates a direct payment using JWT authentication for PayDirect. The request includes card data and must be encrypted using JWE and signed using JWS.',
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppTheme.spacing24),
-
-        // Headers Section
-        PremiumCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.http, color: AppTheme.warning, size: 24),
-                  const SizedBox(width: AppTheme.spacing12),
-                  Text(
-                    'Request Headers',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppTheme.spacing16),
-              _buildHeaderItem('Content-Type', 'text/plain', 'The payload is sent as plain text (JWE token)', isDark),
-              const SizedBox(height: AppTheme.spacing12),
-              _buildHeaderItem('x-gl-token-external', '<JWS_TOKEN>', 'JWT signature token for authentication', isDark),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppTheme.spacing24),
-
-        // Request Body Section
-        PremiumCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.code, color: AppTheme.info, size: 24),
-                  const SizedBox(width: AppTheme.spacing12),
-                  Text(
-                    'Request Body (Before Encryption)',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppTheme.spacing16),
-              Text(
-                'The following JSON payload is encrypted using JWE before sending:',
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-              ),
-              const SizedBox(height: AppTheme.spacing12),
-              Container(
-                padding: const EdgeInsets.all(AppTheme.spacing16),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1F2937) : const Color(0xFF1F2937),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'JSON',
-                          style: GoogleFonts.robotoMono(
-                            fontSize: 12,
-                            color: const Color(0xFF9CA3AF),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy, size: 18, color: Color(0xFF9CA3AF)),
-                          onPressed: () => _copyToClipboard(
-                            '{\n  "merchantTxnId": "23AEE8CB6B62EE2AF07",\n  "paymentData": {\n    "totalAmount": "89",\n    "txnCurrency": "INR",\n    "cardData": {\n      "number": "5132552222223470",\n      "expiryMonth": "12",\n      "expiryYear": "2030",\n      "securityCode": "123"\n    }\n  },\n  "merchantCallbackURL": "https://yourdomain.com/callback"\n}',
-                            'Request payload',
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppTheme.spacing8),
-                    SelectableText(
-                      '{\n  "merchantTxnId": "23AEE8CB6B62EE2AF07",\n  "paymentData": {\n    "totalAmount": "89",\n    "txnCurrency": "INR",\n    "cardData": {\n      "number": "5132552222223470",\n      "expiryMonth": "12",\n      "expiryYear": "2030",\n      "securityCode": "123"\n    }\n  },\n  "merchantCallbackURL": "https://yourdomain.com/callback"\n}',
-                      style: GoogleFonts.robotoMono(
-                        fontSize: 13,
-                        color: Colors.white,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppTheme.spacing16),
-              _buildParameterItem('merchantTxnId', 'string', 'Unique transaction ID from your system', true),
-              _buildParameterItem('paymentData.totalAmount', 'string', 'Payment amount in smallest currency unit', true),
-              _buildParameterItem('paymentData.txnCurrency', 'string', 'ISO 4217 currency code (e.g., INR, USD)', true),
-              _buildParameterItem('paymentData.cardData.number', 'string', 'Card number', true),
-              _buildParameterItem('paymentData.cardData.expiryMonth', 'string', 'Card expiry month (MM)', true),
-              _buildParameterItem('paymentData.cardData.expiryYear', 'string', 'Card expiry year (YYYY)', true),
-              _buildParameterItem('paymentData.cardData.securityCode', 'string', 'Card CVV/CVC', true),
-              _buildParameterItem('merchantCallbackURL', 'string', 'URL to receive payment status callbacks', true),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppTheme.spacing24),
-
-        // Response Section
-        PremiumCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.check_circle, color: AppTheme.success, size: 24),
-                  const SizedBox(width: AppTheme.spacing12),
-                  Text(
-                    'Response (Success)',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppTheme.spacing16),
-              Container(
-                padding: const EdgeInsets.all(AppTheme.spacing16),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1F2937) : const Color(0xFF1F2937),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'JSON',
-                          style: GoogleFonts.robotoMono(
-                            fontSize: 12,
-                            color: const Color(0xFF9CA3AF),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy, size: 18, color: Color(0xFF9CA3AF)),
-                          onPressed: () => _copyToClipboard(
-                            '{\n  "gid": "gl_o-962989f8777c7ff29lo0Yd5X2",\n  "status": "INPROGRESS",\n  "message": "Transaction Created Successfully",\n  "data": {\n    "redirectUrl": "https://api.uat.payglocal.in/gl/payflow-ui/?x-gl-token=...",\n    "statusUrl": "https://api.uat.payglocal.in/gl/v1/payments/gl_o-962989f8777c7ff29lo0Yd5X2/status",\n    "merchantTxnId": "23AEE8CB6B62EE2AF07"\n  }\n}',
-                            'Response payload',
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppTheme.spacing8),
-                    SelectableText(
-                      '{\n  "gid": "gl_o-962989f8777c7ff29lo0Yd5X2",\n  "status": "INPROGRESS",\n  "message": "Transaction Created Successfully",\n  "data": {\n    "redirectUrl": "https://api.uat.payglocal.in/gl/payflow-ui/?x-gl-token=...",\n    "statusUrl": "https://api.uat.payglocal.in/gl/v1/payments/gl_o-962989f8777c7ff29lo0Yd5X2/status",\n    "merchantTxnId": "23AEE8CB6B62EE2AF07"\n  }\n}',
-                      style: GoogleFonts.robotoMono(
-                        fontSize: 13,
-                        color: Colors.white,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppTheme.spacing16),
-              _buildParameterItem('gid', 'string', 'PayGlocal transaction ID', false),
-              _buildParameterItem('status', 'string', 'Transaction status (INPROGRESS, SUCCESS, FAILED)', false),
-              _buildParameterItem('data.redirectUrl', 'string', 'URL to redirect customer for payment', false),
-              _buildParameterItem('data.statusUrl', 'string', 'URL to check payment status', false),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTryDemoCTA(BuildContext context, bool isLargeScreen) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: EdgeInsets.all(
-        isLargeScreen ? AppTheme.spacing48 : AppTheme.spacing32,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.info.withOpacity(0.9),
-            AppTheme.info,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-        boxShadow: AppTheme.shadowLG,
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.rocket_launch,
-            size: isLargeScreen ? 56 : 48,
-            color: Colors.white,
-          ),
-          const SizedBox(height: AppTheme.spacing24),
-          Text(
-            'Ready to Try JWT Authentication?',
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppTheme.spacing16),
-          Text(
-            'Experience the power of secure JWT-based payment initiation in our interactive demo. Test real API calls and see how easy integration can be.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: Colors.white.withOpacity(0.9),
-              height: 1.6,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: isLargeScreen ? AppTheme.spacing32 : AppTheme.spacing24),
-          PremiumButton(
-            label: 'Try Demo Now',
-            icon: Icons.play_arrow,
-            onPressed: () {
-              Navigator.pushNamed(context, '/paydirect/jwt');
-            },
-            buttonStyle: PremiumButtonStyle.primary,
-            isFullWidth: !isLargeScreen,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBulletPoint(String text, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppTheme.spacing8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.arrow_right,
-            size: 20,
-            color: AppTheme.info,
-          ),
-          const SizedBox(width: AppTheme.spacing8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 15,
-                height: 1.5,
-                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
               ),
             ),
           ),
@@ -830,131 +804,116 @@ class _PayDirectJwtDetailScreenState extends State<PayDirectJwtDetailScreen>
     );
   }
 
-  Widget _buildHeaderItem(String name, String value, String description, bool isDark) {
+  Widget _buildBusinessInfoSection({
+    required bool isDark,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String description,
+    required List<String> keyPoints,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(AppTheme.spacing12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark ? AppTheme.darkBorder : const Color(0xFFE5E7EB),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(
-                name,
-                style: GoogleFonts.robotoMono(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.info,
-                ),
-              ),
-              const SizedBox(width: AppTheme.spacing8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.spacing8,
-                  vertical: AppTheme.spacing4,
-                ),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.warning.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusXS),
+                  color: iconColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
+                child: Icon(icon, color: iconColor, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
                 child: Text(
-                  'Required',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.warning,
+                  title,
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppTheme.spacing8),
-          Text(
-            value,
-            style: GoogleFonts.robotoMono(
-              fontSize: 13,
-              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacing8),
+          const SizedBox(height: 16),
           Text(
             description,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.4,
-              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: isDark ? Colors.white70 : const Color(0xFF4B5563),
+              height: 1.6,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildParameterItem(String name, String type, String description, bool isRequired) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppTheme.spacing12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkBackground : const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDark ? AppTheme.darkBorder.withOpacity(0.5) : const Color(0xFFE5E7EB),
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
-                  style: GoogleFonts.robotoMono(
+                  'Key Points',
+                  style: GoogleFonts.inter(
                     fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.info,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  type,
-                  style: GoogleFonts.robotoMono(
-                    fontSize: 11,
-                    color: AppTheme.textSecondary,
+                const SizedBox(height: 10),
+                ...keyPoints.map((point) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(top: 6),
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: iconColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          point,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                )),
               ],
-            ),
-          ),
-          const SizedBox(width: AppTheme.spacing16),
-          if (isRequired)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 4,
-              ),
-              decoration: BoxDecoration(
-                color: AppTheme.error.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                'Required',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.error,
-                ),
-              ),
-            ),
-          const SizedBox(width: AppTheme.spacing16),
-          Expanded(
-            flex: 3,
-            child: Text(
-              description,
-              style: const TextStyle(
-                fontSize: 13,
-                height: 1.4,
-              ),
             ),
           ),
         ],
@@ -962,4 +921,3 @@ class _PayDirectJwtDetailScreenState extends State<PayDirectJwtDetailScreen>
     );
   }
 }
-

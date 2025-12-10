@@ -343,8 +343,8 @@ const pdclient = new PayPdGlocalClient(config); // or use config2/config3 if nee
 //       jwe,                         
 //       {
 //         headers: {
-//           "Content-Type": "text/plain", 
-//           "x-gl-token-external": jws,     
+          // "Content-Type": "text/plain", 
+          // "x-gl-token-external": jws,     
 //         },
 //       }
 //     );
