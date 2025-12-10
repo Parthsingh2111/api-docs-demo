@@ -33,8 +33,8 @@ backendPhp/pg-client-sdk-php/
 backendtest/pg-client-sdk/
 temp_csharp_study/
 
-# Backend (not needed for web deployment)
-backend/
+# Backend: keep Node backend, but still ignore sensitive keys and heavy modules
+backend/keys/
 backendCsh/
 backendJava/
 backendPhp/
