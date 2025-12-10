@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import 'dart:html' as html show window;
+// Conditional import for web
+import 'dart:html' as html show window; // ignore: avoid_web_libraries_in_flutter
 
 enum Environment { development, staging, production }
 
@@ -18,7 +19,7 @@ class AppConfig {
         // If running on Vercel, use the same domain for backend
         if ((hostname?.contains('vercel.app') ?? false) || (hostname?.contains('vercel.com') ?? false)) {
           // Backend is on the same domain as frontend
-          return '${protocol}//${hostname}';
+          return '$protocol//$hostname';
         }
         
         // If running on localhost, use local backend
