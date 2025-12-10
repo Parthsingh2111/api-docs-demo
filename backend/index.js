@@ -8,7 +8,14 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { start } = require('repl');
-const jose = require('jose');
+// Dynamic import for jose (ES Module)
+let jose;
+async function getJose() {
+  if (!jose) {
+    jose = await import('jose');
+  }
+  return jose;
+}
 const axios = require('axios');
 // import multer from 'multer';
 const multer = require('multer');
@@ -784,9 +791,10 @@ app.post('/api/pay/auth', async (req, res) => {
 
 
 async function pemToKey(pem, isPrivate = false) {
+  const joseModule = await getJose();
   return isPrivate
-    ? await jose.importPKCS8(pem, 'RS256') // JWS
-    : await jose.importSPKI(pem, 'RSA-OAEP-256'); // JWE
+    ? await joseModule.importPKCS8(pem, 'RS256') // JWS
+    : await joseModule.importSPKI(pem, 'RSA-OAEP-256'); // JWE
 }
 
 
@@ -1125,7 +1133,8 @@ try {
 
   // 3) Sign with merchant private key → JWS
   const privateKey = await pemToKey(merchantPrivateKey, true);
-  const jws = await new jose.SignJWT(digestObject)
+  const joseModule = await getJose();
+  const jws = await new joseModule.SignJWT(digestObject)
     .setProtectedHeader({
       alg: 'RS256',
       kid: process.env.PAYGLOCAL_PRIVATE_KEY_ID,
@@ -1337,8 +1346,9 @@ app.post('/api/codedrop', async (req, res) => {
     const payloadStr = JSON.stringify(payload);
     const publicKey = await pemToKey(payglocalPublicKey, false);
     console.log({ publicKey })
+    const joseModule = await getJose();
 
-    const jwe = await new jose.CompactEncrypt(new TextEncoder().encode(payloadStr))
+    const jwe = await new joseModule.CompactEncrypt(new TextEncoder().encode(payloadStr))
       .setProtectedHeader({
         alg: 'RSA-OAEP-256',
         enc: 'A128CBC-HS256',
@@ -1394,8 +1404,9 @@ app.post('/api/codedrop', async (req, res) => {
       exp: jwsExp,
       iat: jwsIat,
     };
+    const joseModule2 = await getJose();
 
-    const jws = await new jose.CompactSign(new TextEncoder().encode(JSON.stringify(digestObject)))
+    const jws = await new joseModule2.CompactSign(new TextEncoder().encode(JSON.stringify(digestObject)))
       .setProtectedHeader({
         alg: 'RS256',
         kid: privateKeyId,
