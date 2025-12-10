@@ -16,7 +16,7 @@ class AppConfig {
         final protocol = html.window.location.protocol;
         
         // If running on Vercel, use the same domain for backend
-        if (hostname.contains('vercel.app') || hostname.contains('vercel.com')) {
+        if ((hostname?.contains('vercel.app') ?? false) || (hostname?.contains('vercel.com') ?? false)) {
           // Backend is on the same domain as frontend
           return '${protocol}//${hostname}';
         }
