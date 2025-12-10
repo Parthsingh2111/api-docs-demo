@@ -73,10 +73,24 @@ module.exports = async (req, res) => {
   }
 
   try {
+    // Parse request body if it's a string
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid JSON in request body',
+          code: 'INVALID_JSON'
+        });
+      }
+    }
+
     // Initialize clients on first request
     initializeClients();
 
-    const { merchantTxnId, paymentData, merchantCallbackURL } = req.body;
+    const { merchantTxnId, paymentData, merchantCallbackURL } = body;
 
     if (!merchantTxnId || !paymentData || !merchantCallbackURL) {
       return res.status(400).json({
