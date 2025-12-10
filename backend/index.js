@@ -67,18 +67,42 @@ function normalizePemKey(key) {
     throw new Error('Key must be a non-empty string');
   }
   
-  return key
-    .trim()
-    // First, convert literal \n escape sequences to actual newlines (for Vercel env vars)
-    .replace(/\\n/g, '\n')
-    // Also handle double-escaped newlines (\\n -> \n -> actual newline)
-    .replace(/\\\\n/g, '\n')
-    // Normalize line endings
-    .replace(/\r\n|\r/g, '\n')
-    // Remove empty lines
-    .replace(/\n\s*\n/g, '\n')
-    // Remove non-ASCII characters
-    .replace(/[^\x00-\x7F]/g, '');
+  let normalized = key.trim();
+  
+  // Handle various escape patterns from Vercel env vars
+  // Convert literal \n escape sequences to actual newlines
+  normalized = normalized.replace(/\\n/g, '\n');
+  
+  // Handle double-escaped newlines
+  normalized = normalized.replace(/\\\\n/g, '\n');
+  
+  // Handle backslashes that appear where newlines should be (common in Vercel env vars)
+  // Pattern: -----BEGIN...-----\M or -----END...-----\M should become -----BEGIN...-----\nM
+  normalized = normalized.replace(/-----([A-Z\s]+)-----\\/g, '-----$1-----\n');
+  
+  // Handle backslashes before base64 content (where newlines should be in PEM format)
+  // Pattern: backslash followed by base64 character (A-Z, a-z, 0-9, +, /, =)
+  // This handles cases like: \MII... or \v1i... where \ should be \n
+  // Only replace if it looks like a PEM line break (backslash before base64 content)
+  normalized = normalized.replace(/\\([A-Za-z0-9+\/=])/g, '\n$1');
+  
+  // Normalize line endings
+  normalized = normalized.replace(/\r\n|\r/g, '\n');
+  
+  // Remove empty lines
+  normalized = normalized.replace(/\n\s*\n/g, '\n');
+  
+  // Ensure proper PEM format: BEGIN and END markers should be on their own lines
+  normalized = normalized.replace(/-----BEGIN/g, '\n-----BEGIN');
+  normalized = normalized.replace(/-----END/g, '\n-----END');
+  
+  // Clean up: remove leading/trailing whitespace and extra newlines
+  normalized = normalized.trim();
+  
+  // Remove non-ASCII characters (but keep the key structure)
+  normalized = normalized.replace(/[^\x00-\x7F]/g, '');
+  
+  return normalized;
 }
 
 // Helper function to load key from env var or file
