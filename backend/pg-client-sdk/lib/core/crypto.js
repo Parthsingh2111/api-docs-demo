@@ -1,4 +1,12 @@
-const jose = require('jose');
+// Dynamic import for jose (ES Module)
+let jose;
+async function getJose() {
+  if (!jose) {
+    jose = await import('jose');
+  }
+  return jose;
+}
+
 const crypto = require('crypto');
 const { logger } = require('../utils/logger');
 
@@ -14,9 +22,10 @@ async function pemToKey(pem, isPrivate = false) {
   }
 
   try {
+    const joseModule = await getJose();
     return isPrivate
-      ? await jose.importPKCS8(pem, 'RS256') // For signing (private key)
-      : await jose.importSPKI(pem, 'RSA-OAEP-256'); // For encryption (public key)
+      ? await joseModule.importPKCS8(pem, 'RS256') // For signing (private key)
+      : await joseModule.importSPKI(pem, 'RSA-OAEP-256'); // For encryption (public key)
   } catch (err) {
     logger.error('Jose import error:', err);
     throw new Error(`Crypto error: Invalid PEM format: ${err.message}`);
@@ -35,8 +44,9 @@ async function generateJWE(payload, config) {
   const exp = iat + (config.tokenExpiration || 300000); // Default 5 minutes, configurable
   const publicKey = await pemToKey(config.payglocalPublicKey, false);
   const payloadStr = JSON.stringify(payload);
+  const joseModule = await getJose();
 
-  return await new jose.CompactEncrypt(new TextEncoder().encode(payloadStr))
+  return await new joseModule.CompactEncrypt(new TextEncoder().encode(payloadStr))
     .setProtectedHeader({
       alg: 'RSA-OAEP-256',
       enc: 'A128CBC-HS256',
@@ -68,8 +78,9 @@ async function generateJWS(toDigest, config) {
   };
 
   const privateKey = await pemToKey(config.merchantPrivateKey, true);
+  const joseModule = await getJose();
 
-  return await new jose.SignJWT(digestObject)
+  return await new joseModule.SignJWT(digestObject)
     .setProtectedHeader({
       'issued-by': config.merchantId,
       alg: 'RS256',
