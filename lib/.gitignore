@@ -1,11 +1,18 @@
-# Ignore everything
+# Ignore everything in lib by default
 *
 
-# Except these (whitelist)
-!lib/
-!lib/**
+# Allow source under /lib/screen
+!screen/
+!screen/**
 
-# Optional: allow README or pubspec.yaml if needed
-!pubspec.yaml
-!pubspec.lock
-!README.md
+# Allow other top-level Dart files if needed
+!main.dart
+!routes.dart
+!theme/
+!theme/**
+!navigation/
+!navigation/**
+
+# Allow package metadata
+!../pubspec.yaml
+!../pubspec.lock
