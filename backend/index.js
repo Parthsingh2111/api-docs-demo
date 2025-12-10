@@ -45,9 +45,15 @@ app.use((req, res, next) => {
 });
 
 
-app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
-});
+// Only start server if not in serverless environment (Vercel)
+if (!process.env.VERCEL && !process.env.VERCEL_ENV) {
+  app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+  });
+}
+
+// Export app for Vercel serverless function
+module.exports = app;
 
 function normalizePemKey(key) {
   return key
@@ -57,15 +63,31 @@ function normalizePemKey(key) {
     .replace(/[^\x00-\x7F]/g, ''); // Remove non-ASCII characters
 }
 
-// Read and normalize PEM key content
-const payglocalPublicKey = normalizePemKey(fs.readFileSync(path.resolve(__dirname, process.env.PAYGLOCAL_PUBLIC_KEY), 'utf8'));
-const merchantPrivateKey = normalizePemKey(fs.readFileSync(path.resolve(__dirname, process.env.PAYGLOCAL_PRIVATE_KEY), 'utf8'));
+// Helper function to load key from env var or file
+function loadKey(envVarName, filePathEnvVar) {
+  // First try to load from environment variable (for Vercel)
+  if (process.env[envVarName]) {
+    console.log(`Loading ${envVarName} from environment variable`);
+    return normalizePemKey(process.env[envVarName]);
+  }
 
-const payglocalPublicKey2 = normalizePemKey(fs.readFileSync(path.resolve(__dirname, process.env.PAYGLOCAL_PUBLIC_KEY2), 'utf8'));
-const merchantPrivateKey2 = normalizePemKey(fs.readFileSync(path.resolve(__dirname, process.env.PAYGLOCAL_PRIVATE_KEY2), 'utf8'));
+  // Fallback to file (for local development)
+  if (process.env[filePathEnvVar]) {
+    console.log(`Loading ${envVarName} from file: ${process.env[filePathEnvVar]}`);
+    return normalizePemKey(fs.readFileSync(path.resolve(__dirname, process.env[filePathEnvVar]), 'utf8'));
+  }
 
+  throw new Error(`Neither ${envVarName} nor ${filePathEnvVar} is set`);
+}
 
-const merchantPrivateKey3 = normalizePemKey(fs.readFileSync(path.resolve(__dirname, process.env.PAYGLOCAL_PRIVATE_KEY3), 'utf8'));
+// Read and normalize PEM key content (supports both env vars and files)
+const payglocalPublicKey = loadKey('PAYGLOCAL_PUBLIC_KEY_CONTENT', 'PAYGLOCAL_PUBLIC_KEY');
+const merchantPrivateKey = loadKey('PAYGLOCAL_PRIVATE_KEY_CONTENT', 'PAYGLOCAL_PRIVATE_KEY');
+
+const payglocalPublicKey2 = loadKey('PAYGLOCAL_PUBLIC_KEY2_CONTENT', 'PAYGLOCAL_PUBLIC_KEY2');
+const merchantPrivateKey2 = loadKey('PAYGLOCAL_PRIVATE_KEY2_CONTENT', 'PAYGLOCAL_PRIVATE_KEY2');
+
+const merchantPrivateKey3 = loadKey('PAYGLOCAL_PRIVATE_KEY3_CONTENT', 'PAYGLOCAL_PRIVATE_KEY3');
 // Validate keys
 try {
   crypto.createPublicKey(payglocalPublicKey);
