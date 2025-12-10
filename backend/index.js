@@ -87,14 +87,39 @@ function loadKey(envVarName, filePathEnvVar) {
   throw new Error(`Neither ${envVarName} nor ${filePathEnvVar} is set`);
 }
 
+// Helper function to optionally load key (returns null if not set)
+function loadKeyOptional(envVarName, filePathEnvVar) {
+  // First try to load from environment variable (for Vercel)
+  if (process.env[envVarName]) {
+    console.log(`Loading ${envVarName} from environment variable`);
+    return normalizePemKey(process.env[envVarName]);
+  }
+
+  // Fallback to file (for local development)
+  if (process.env[filePathEnvVar]) {
+    try {
+      console.log(`Loading ${envVarName} from file: ${process.env[filePathEnvVar]}`);
+      return normalizePemKey(fs.readFileSync(path.resolve(__dirname, process.env[filePathEnvVar]), 'utf8'));
+    } catch (err) {
+      console.log(`Optional key ${envVarName} not found, skipping`);
+      return null;
+    }
+  }
+
+  console.log(`Optional key ${envVarName} not set, skipping`);
+  return null;
+}
+
 // Read and normalize PEM key content (supports both env vars and files)
+// Configuration 1 is required
 const payglocalPublicKey = loadKey('PAYGLOCAL_PUBLIC_KEY_CONTENT', 'PAYGLOCAL_PUBLIC_KEY');
 const merchantPrivateKey = loadKey('PAYGLOCAL_PRIVATE_KEY_CONTENT', 'PAYGLOCAL_PRIVATE_KEY');
 
-const payglocalPublicKey2 = loadKey('PAYGLOCAL_PUBLIC_KEY2_CONTENT', 'PAYGLOCAL_PUBLIC_KEY2');
-const merchantPrivateKey2 = loadKey('PAYGLOCAL_PRIVATE_KEY2_CONTENT', 'PAYGLOCAL_PRIVATE_KEY2');
+// Configuration 2 and 3 are optional
+const payglocalPublicKey2 = loadKeyOptional('PAYGLOCAL_PUBLIC_KEY2_CONTENT', 'PAYGLOCAL_PUBLIC_KEY2');
+const merchantPrivateKey2 = loadKeyOptional('PAYGLOCAL_PRIVATE_KEY2_CONTENT', 'PAYGLOCAL_PRIVATE_KEY2');
 
-const merchantPrivateKey3 = loadKey('PAYGLOCAL_PRIVATE_KEY3_CONTENT', 'PAYGLOCAL_PRIVATE_KEY3');
+const merchantPrivateKey3 = loadKeyOptional('PAYGLOCAL_PRIVATE_KEY3_CONTENT', 'PAYGLOCAL_PRIVATE_KEY3');
 // Validate keys
 try {
   crypto.createPublicKey(payglocalPublicKey);
@@ -120,37 +145,50 @@ const config = {
   logLevel: process.env.PAYGLOCAL_LOG_LEVEL || 'debug'
 };
 
-// Secondary config/client for codedrop (separate MID/region)
-const config2 = {
-  apiKey: process.env.PAYGLOCAL_API_KEY2,
-  merchantId: process.env.PAYGLOCAL_MERCHANT_ID2,
-  publicKeyId: process.env.PAYGLOCAL_PUBLIC_KEY_ID2,
-  privateKeyId: process.env.PAYGLOCAL_PRIVATE_KEY_ID2,
-  payglocalPublicKey: payglocalPublicKey2,
-  merchantPrivateKey: merchantPrivateKey2,
-  payglocalEnv: process.env.PAYGLOCAL_Env_VAR2 || process.env.PAYGLOCAL_Env_VAR,
-  logLevel: process.env.PAYGLOCAL_LOG_LEVEL || 'debug'
-};
+// Secondary config/client for codedrop (separate MID/region) - optional
+let config2 = null;
+let client2 = null;
+if (payglocalPublicKey2 && merchantPrivateKey2 && 
+    process.env.PAYGLOCAL_API_KEY2 && process.env.PAYGLOCAL_MERCHANT_ID2) {
+  config2 = {
+    apiKey: process.env.PAYGLOCAL_API_KEY2,
+    merchantId: process.env.PAYGLOCAL_MERCHANT_ID2,
+    publicKeyId: process.env.PAYGLOCAL_PUBLIC_KEY_ID2,
+    privateKeyId: process.env.PAYGLOCAL_PRIVATE_KEY_ID2,
+    payglocalPublicKey: payglocalPublicKey2,
+    merchantPrivateKey: merchantPrivateKey2,
+    payglocalEnv: process.env.PAYGLOCAL_Env_VAR2 || process.env.PAYGLOCAL_Env_VAR,
+    logLevel: process.env.PAYGLOCAL_LOG_LEVEL || 'debug'
+  };
+  client2 = new PayGlocalClient(config2);
+  console.log('Configuration 2 (CodeDrop) initialized');
+} else {
+  console.log('Configuration 2 (CodeDrop) not available - skipping');
+}
 
-const config3 = {
-  apiKey: process.env.PAYGLOCAL_API_KEY3,
-  merchantId: process.env.PAYGLOCAL_MERCHANT_ID3,
-  publicKeyId: process.env.PAYGLOCAL_PUBLIC_KEY_ID3,
-  privateKeyId: process.env.PAYGLOCAL_PRIVATE_KEY_ID3,
-  payglocalPublicKey,
-  merchantPrivateKey: merchantPrivateKey3,
-  payglocalEnv: process.env.PAYGLOCAL_Env_VAR3 || process.env.PAYGLOCAL_Env_VAR,
-  logLevel: process.env.PAYGLOCAL_LOG_LEVEL || 'debug'
-};
-
-
-
-
+// Configuration 3 - optional
+let config3 = null;
+let client3 = null;
+if (merchantPrivateKey3 && 
+    process.env.PAYGLOCAL_API_KEY3 && process.env.PAYGLOCAL_MERCHANT_ID3) {
+  config3 = {
+    apiKey: process.env.PAYGLOCAL_API_KEY3,
+    merchantId: process.env.PAYGLOCAL_MERCHANT_ID3,
+    publicKeyId: process.env.PAYGLOCAL_PUBLIC_KEY_ID3,
+    privateKeyId: process.env.PAYGLOCAL_PRIVATE_KEY_ID3,
+    payglocalPublicKey,
+    merchantPrivateKey: merchantPrivateKey3,
+    payglocalEnv: process.env.PAYGLOCAL_Env_VAR3 || process.env.PAYGLOCAL_Env_VAR,
+    logLevel: process.env.PAYGLOCAL_LOG_LEVEL || 'debug'
+  };
+  client3 = new PayGlocalClient(config3);
+  console.log('Configuration 3 initialized');
+} else {
+  console.log('Configuration 3 not available - skipping');
+}
 
 // jwt based payment method
 const client = new PayGlocalClient(config);
-const client2 = new PayGlocalClient(config2);
-const client3 = new PayGlocalClient(config3);
 
 // PD client for card data processing
 const pdclient = new PayPdGlocalClient(config); // or use config2/config3 if needed
@@ -662,6 +700,13 @@ app.post('/api/pay/si', async (req, res) => {
       // payment = await pdclient.initiateSiPayment(payload);
     }
     else if (standingInstruction.data.maxAmount) {
+      if (!client3) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Configuration 3 not available. Please set PAYGLOCAL_API_KEY3 and related environment variables.',
+          code: 'CONFIG_ERROR'
+        });
+      }
       payment = await client3.initiateSiPayment(payload);
     }
     else {
@@ -1498,6 +1543,13 @@ app.get('/api/codedrop/status', async (req, res) => {
       });
     }
 
+    if (!client2) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Configuration 2 (CodeDrop) not available. Please set PAYGLOCAL_API_KEY2 and related environment variables.',
+        code: 'CONFIG_ERROR'
+      });
+    }
     const payment = await client2.initiateCheckStatus({ gid });
     console.log('Raw SDK Response (codedrop):', payment);
 
@@ -1554,6 +1606,13 @@ app.post('/api/siOnDemand', async (req, res) => {
     console.log('Initiating SI On-Demand with payload:', payload);
     let response;
     if (hasAmount) {
+      if (!client3) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Configuration 3 not available. Please set PAYGLOCAL_API_KEY3 and related environment variables.',
+          code: 'CONFIG_ERROR'
+        });
+      }
       response = await client3.initiateSiOnDemandVariable(payload);
     } else {
       response = await client.initiateSiOnDemandFixed(payload);
