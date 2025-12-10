@@ -1,3 +1,17 @@
+// Load environment variables from .env files (for local development)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  try {
+    require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env.local') });
+  } catch (e) {
+    // Fallback to .env
+    try {
+      require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
+    } catch (e2) {
+      // dotenv not available or no .env file, continue without it
+    }
+  }
+}
+
 const PayGlocalClient = require('../../backend/pg-client-sdk/lib/index.js');
 const PayPdGlocalClient = require('../../backend/pgpd-client-sdk/lib/index.js');
 const fs = require('fs');
@@ -20,9 +34,32 @@ function initializeClients() {
   if (clientsInitialized) return;
 
   try {
+    console.log('Initializing PayGlocal clients...');
+    console.log('__dirname:', __dirname);
+    console.log('Environment variables check:', {
+      hasApiKey: !!process.env.PAYGLOCAL_API_KEY,
+      hasMerchantId: !!process.env.PAYGLOCAL_MERCHANT_ID,
+      hasPublicKeyId: !!process.env.PAYGLOCAL_PUBLIC_KEY_ID,
+      hasPrivateKeyId: !!process.env.PAYGLOCAL_PRIVATE_KEY_ID,
+      hasPublicKeyContent: !!process.env.PAYGLOCAL_PUBLIC_KEY_CONTENT,
+      hasPrivateKeyContent: !!process.env.PAYGLOCAL_PRIVATE_KEY_CONTENT,
+      hasPublicKeyPath: !!process.env.PAYGLOCAL_PUBLIC_KEY,
+      hasPrivateKeyPath: !!process.env.PAYGLOCAL_PRIVATE_KEY
+    });
+
     // Read keys from environment variables or file paths
     const privateKeyPath = process.env.PAYGLOCAL_PRIVATE_KEY || path.resolve(__dirname, '../../backend/keys/payglocal_private_key');
     const publicKeyPath = process.env.PAYGLOCAL_PUBLIC_KEY || path.resolve(__dirname, '../../backend/keys/payglocal_public_key');
+    
+    console.log('Key paths:', { privateKeyPath, publicKeyPath });
+    
+    // Check if files exist if not using content from env
+    if (!process.env.PAYGLOCAL_PUBLIC_KEY_CONTENT && !fs.existsSync(publicKeyPath)) {
+      throw new Error(`Public key file not found at: ${publicKeyPath}`);
+    }
+    if (!process.env.PAYGLOCAL_PRIVATE_KEY_CONTENT && !fs.existsSync(privateKeyPath)) {
+      throw new Error(`Private key file not found at: ${privateKeyPath}`);
+    }
     
     const payglocalPublicKey = process.env.PAYGLOCAL_PUBLIC_KEY_CONTENT 
       ? normalizePemKey(process.env.PAYGLOCAL_PUBLIC_KEY_CONTENT)
@@ -31,6 +68,10 @@ function initializeClients() {
     const merchantPrivateKey = process.env.PAYGLOCAL_PRIVATE_KEY_CONTENT
       ? normalizePemKey(process.env.PAYGLOCAL_PRIVATE_KEY_CONTENT)
       : normalizePemKey(fs.readFileSync(privateKeyPath, 'utf8'));
+
+    if (!payglocalPublicKey || !merchantPrivateKey) {
+      throw new Error('Failed to read or parse keys');
+    }
 
     const config = {
       apiKey: process.env.PAYGLOCAL_API_KEY,
@@ -43,11 +84,18 @@ function initializeClients() {
       logLevel: process.env.PAYGLOCAL_LOG_LEVEL || 'debug'
     };
 
+    if (!config.apiKey || !config.merchantId || !config.publicKeyId || !config.privateKeyId) {
+      throw new Error('Missing required configuration. Please set PAYGLOCAL_API_KEY, PAYGLOCAL_MERCHANT_ID, PAYGLOCAL_PUBLIC_KEY_ID, and PAYGLOCAL_PRIVATE_KEY_ID environment variables.');
+    }
+
+    console.log('Creating PayGlocal clients...');
     client = new PayGlocalClient(config);
     pdclient = new PayPdGlocalClient(config);
     clientsInitialized = true;
+    console.log('PayGlocal clients initialized successfully');
   } catch (error) {
     console.error('Failed to initialize PayGlocal clients:', error);
+    console.error('Error stack:', error.stack);
     throw error;
   }
 }
@@ -150,11 +198,18 @@ module.exports = async (req, res) => {
     return res.status(200).json(formattedResponse);
   } catch (error) {
     console.error('Payment error:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Return detailed error information for debugging
     return res.status(500).json({
       status: 'ERROR',
       message: 'Payment failed',
       error: error.message || 'Unknown error occurred',
-      code: 'PAYMENT_ERROR'
+      code: 'PAYMENT_ERROR',
+      details: process.env.NODE_ENV === 'development' ? {
+        stack: error.stack,
+        name: error.name
+      } : undefined
     });
   }
 };
