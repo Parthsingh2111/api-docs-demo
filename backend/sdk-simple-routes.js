@@ -101,6 +101,30 @@ function originOf(req) {
   return `${String(protocol).split(',')[0]}://${String(host).split(',')[0]}`;
 }
 
+/**
+ * Where the Flutter app is served, which is not always where this backend is.
+ *
+ * Deployed, one origin serves both, so the request's own origin is right.
+ * Locally the app is a separate static server on :8080 while this runs on
+ * :3000, which is the same split the existing /callbackurl route assumes.
+ */
+function appOriginOf(req) {
+  if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, '');
+  if (process.env.VERCEL || process.env.VERCEL_ENV) return originOf(req);
+  return 'http://localhost:8080';
+}
+
+/**
+ * The app routes on the fragment, so a redirect has to carry the "#" or the
+ * app boots at its home screen and the payment result is lost.
+ */
+function appUrl(req, route, params) {
+  const query = new URLSearchParams(
+    Object.entries(params).filter(([, value]) => value != null && value !== '')
+  ).toString();
+  return `${appOriginOf(req)}/#${route}${query ? `?${query}` : ''}`;
+}
+
 /** PayGlocal errors carry a code and a readable message; pass both through. */
 function sendError(res, error) {
   const status = error.code === 'API_ERROR' ? 502 : 500;
@@ -232,8 +256,6 @@ function register(app) {
    * back at all, and PayGlocal does not sign it. The webhook confirms payment.
    */
   const handleCallback = async (req, res) => {
-    const origin = originOf(req);
-
     try {
       const { readCallback } = await loadSdk();
 
@@ -244,24 +266,39 @@ function register(app) {
         req.query?.token;
 
       const result = readCallback(token);
-
-      const target = new URL(
-        result.paid ? '/payment-success' : '/payment-failure',
-        origin
-      );
-      if (result.transactionId) target.searchParams.set('gid', result.transactionId);
-      if (result.orderId) target.searchParams.set('txnId', result.orderId);
-      if (result.amount) target.searchParams.set('amount', result.amount);
-      if (result.status) target.searchParams.set('status', result.status);
-      if (!result.paid) target.searchParams.set('reason', result.status || 'Payment not completed');
-
       console.log(`[sdk-simple] callback ${result.orderId} -> ${result.status}`);
-      return res.redirect(target.toString());
+
+      // The SDK reads `amount` and `gid`. Real PayGlocal callbacks have been
+      // capitalising these (`Amount`), and the /callbackurl route in index.js
+      // has read both spellings for as long as it has existed. Fall back the
+      // same way, or the success screen shows a blank amount. Worth settling
+      // with PayGlocal and fixing in the SDK rather than here.
+      const raw = result.raw || {};
+      const amount = result.amount ?? raw.Amount ?? raw.amount;
+      const transactionId = result.transactionId ?? raw.gid ?? raw['x-gl-gid'];
+
+      // Field names match what the app's success and failure screens read.
+      if (result.paid) {
+        return res.redirect(
+          appUrl(req, '/payment-success', {
+            txnId: result.orderId,
+            gid: transactionId,
+            amount,
+            status: result.status,
+          })
+        );
+      }
+
+      return res.redirect(
+        appUrl(req, '/payment-failure', {
+          txnId: result.orderId,
+          status: result.status,
+          reason: result.status || 'Payment not completed',
+        })
+      );
     } catch (error) {
       console.error(`[sdk-simple] callback ${error.code}: ${error.message}`);
-      const target = new URL('/payment-failure', origin);
-      target.searchParams.set('reason', error.message);
-      return res.redirect(target.toString());
+      return res.redirect(appUrl(req, '/payment-failure', { reason: error.message }));
     }
   };
 
