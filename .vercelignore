@@ -33,13 +33,29 @@ backendPhp/pg-client-sdk-php/
 backendtest/pg-client-sdk/
 temp_csharp_study/
 
-# Backend: keep Node backend, but still ignore sensitive keys and heavy modules
+# Backend: keep Node backend and SDKs, but ignore sensitive keys
 backend/keys/
+backend/keys2/
+backend/keys3/
+backend/.env
+
+# The simple SDK ships as source only. Its keys and .env are local test
+# material and must never reach a deployment; on Vercel the keys come from
+# PAYGLOCAL_*_KEY_CONTENT instead.
+backend/payglocal-sdk-simple/keys/
+backend/payglocal-sdk-simple/.env
+backend/payglocal-sdk-simple/.env.example
+
+# Ignore other backend implementations
 backendCsh/
 backendJava/
 backendPhp/
 backendtest/
 status-check-sample/
 test_jwt_project/
+
+# Root node_modules will be installed by Vercel
 node_modules/
+
+# NOTE: backend/pg-client-sdk and backend/pgpd-client-sdk are INCLUDED (not ignored)
 
