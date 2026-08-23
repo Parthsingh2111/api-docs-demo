@@ -56,6 +56,12 @@ class AppConfig {
   static String get siOnDemandUrl => '$baseUrl/api/siOnDemand';
   static String get codeDropUrl => '$baseUrl/api/codedrop';
   static String get siStatusUrl => '$baseUrl/api/siStatus';
+
+  // The simple SDK (backend/payglocal-sdk-simple). Separate prefix so it can be
+  // tested against the same credentials without disturbing the routes above.
+  static String get sdkSimpleHealthUrl => '$baseUrl/api/sdk-simple/health';
+  static String get sdkSimpleInitiateUrl => '$baseUrl/api/sdk-simple/initiate';
+  static String get sdkSimpleStatusUrl => '$baseUrl/api/sdk-simple/status';
     
   // App Configuration
   static bool get isDebugMode => kDebugMode;

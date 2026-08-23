@@ -627,13 +627,67 @@ Future<void> handleAuthPayment(BuildContext context, Map<String, dynamic> paymen
     Logger.payment('Initiating Auth Payment', paymentData);
     
     final merchantTxnId = generateMerchantTxnId();
-    final payload = {
-      "merchantTxnId": merchantTxnId,
-      "captureTxn": false,
-      ...paymentData,
-      "merchantCallbackURL":
-          "https://api.uat.payglocal.in/gl/v1/payments/merchantCallback",
-    };
+    // final payload = {
+    //   "merchantTxnId": merchantTxnId,
+    //   "captureTxn": false,
+    //   ...paymentData,
+    //   "merchantCallbackURL":
+    //       "https://api.uat.payglocal.in/gl/v1/payments/merchantCallback",
+    // };
+
+     final payload = {
+  "merchantTxnId": "ADAM_USAVB210289",
+  "merchantUniqueId": null,
+  "paymentData": {
+    "totalAmount": "747.40",
+    "txnCurrency": "USD",
+    "billingData": {
+      "firstName": "Diwakar",
+      "lastName": "test",
+      "addressStreet1": "nyc",
+      "addressStreet2": "nyc",
+      "addressCity": "nyc",
+      "addressState": "nyc",
+      "addressPostalCode": "10023",
+      "addressCountry": "US",
+      "emailId": "test@gmail.com"
+    }
+  },
+  "riskData": {
+    "flightData": [
+      {
+        "journeyType": "ONEWAY",
+        "ticketNumber": null,
+        "reservationDate": "20260208",
+        "legData": [
+          {
+            "routeId": "1",
+            "legId": "1",
+            "flightNumber": "10",
+            "departureAirportCode": "AUH",
+            "departureCity": "Abu Dhabi",
+            "departureCountry": "AE",
+            "departureDate": "2026-05-12T08:30:00Z",
+            "arrivalAirportCode": "ORD",
+            "arrivalCity": "Chicago",
+            "arrivalCountry": "US",
+            "arrivalDate": "2026-05-13T07:00:00Z",
+            "CarrierCode": "10",
+            "airlineServiceClass": "Economy"
+          }
+        ],
+        "passengerData": [
+          {
+            "firstName": "Diwakar",
+            "lastName": "test"
+          }
+        ]
+      }
+    ]
+  },
+  "merchantCallbackURL": "https://api.uat.payglocal.in/gl/v1/payments/merchantCallback",
+  "captureTxn": false
+};
     
     Logger.debug('Sending auth payment request', 'Payment');
     

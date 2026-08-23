@@ -16,6 +16,9 @@ import '../screen/pd_standing_instruction.dart';
 import '../screen/payglocal_codedrop_screen.dart';
 import '../screen/payment_success_screen.dart';
 import '../screen/payment_failure_screen.dart';
+import '../screen/cart_screen.dart';
+import '../screen/checkout_screen.dart';
+import '../models/cart_item.dart';
 import '../screen/jwt_services_screen.dart';
 import '../screen/si_services_screen.dart';
 import '../screen/auth_services_screen.dart';
@@ -46,6 +49,7 @@ import '../screen/paydirect_api_reference_jwt_screen.dart';
 import '../screen/paydirect_api_reference_si_screen.dart';
 import '../screen/paydirect_api_reference_auth_screen.dart';
 import '../screen/api_credentials_screen.dart';
+import '../screen/new_sdk_test_screen.dart';
 import '../widgets/universal_scaffold.dart';
 
 class AppRouter {
@@ -57,8 +61,10 @@ class AppRouter {
   static const String paydirectDocs = '/paydirect-docs';
   static const String services = '/services';
   static const String sdks = '/sdks';
+  static const String newSdkTest = '/new-sdk-test';
   static const String visualization = '/visualization';
   static const String payload = '/payload';
+  static const String cart = '/cart';
   static const String checkout = '/checkout';
   static const String codedrop = '/payglocal-codedrop';
   static const String paymentSuccess = '/payment-success';
@@ -148,6 +154,9 @@ class AppRouter {
       case sdks:
         return _wrapWithUniversal(const SDKsScreen(), settings, name);
       
+      case newSdkTest:
+        return _wrapWithUniversal(const NewSdkTestScreen(), settings, name);
+      
       case visualization: {
         final String? stepStr = uri.queryParameters['step'];
         final int? initialStep = int.tryParse(stepStr ?? '');
@@ -156,9 +165,41 @@ class AppRouter {
       
       case payload:
         return _wrapWithUniversal(const PayloadScreen(), settings, name);
-      
+
+      case cart:
+        return _buildRoute(
+          CartScreen(
+            initialItems: settings.arguments as List<CartItem>?,
+          ),
+          settings,
+        );
+
       case checkout:
-        return _buildRoute(const CheckoutScreen(), settings);
+        final args = settings.arguments as Map<String, dynamic>?;
+        if (args == null) {
+          // If no arguments, redirect to cart
+          return _buildRoute(const CartScreen(), settings);
+        }
+
+        // Check if this is a merchant interface checkout (has 'products' key)
+        // or a cart checkout (has 'cartItems' key)
+        if (args.containsKey('products')) {
+          // Merchant interface checkout - use the CheckoutScreen from merchant_product_interface.dart
+          return _buildRoute(const CheckoutScreen(), settings);
+        } else {
+          // Cart checkout - use the PaymentCheckoutScreen
+          return _buildRoute(
+            PaymentCheckoutScreen(
+              cartItems: args['cartItems'] as List<CartItem>,
+              subtotal: args['subtotal'] as double,
+              tax: args['tax'] as double,
+              shipping: args['shipping'] as double,
+              total: args['total'] as double,
+              cdId: args['cdId'] as String? ?? "cd_123456789",
+            ),
+            settings,
+          );
+        }
       
       case codedrop:
         return _wrapWithUniversal(

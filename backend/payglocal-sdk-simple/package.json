@@ -1,0 +1,10 @@
+{
+  "name": "payglocal-sdk-simple",
+  "version": "1.0.0",
+  "description": "Vendored copy of the simple PayGlocal SDK. The runnable example lives in the upstream repo; only the payglocal/ folder is needed here.",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "jose": "^6.1.0"
+  }
+}

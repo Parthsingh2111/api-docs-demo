@@ -392,6 +392,13 @@ class _ComprehensiveNavigationState extends State<ComprehensiveNavigation>
         badgeColor: const Color(0xFF10B981),
       ),
       NavSection(
+        title: 'New SDK Test',
+        route: AppRouter.newSdkTest,
+        icon: Icons.science,
+        badge: 'UAT',
+        badgeColor: const Color(0xFF6366F1),
+      ),
+      NavSection(
         title: 'Webhooks Docs',
         route: AppRouter.webhooksDocumentation,
         icon: Icons.webhook,

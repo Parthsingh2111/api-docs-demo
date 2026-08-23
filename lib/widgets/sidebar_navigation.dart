@@ -121,6 +121,13 @@ class SidebarNavigation extends StatelessWidget {
                 ),
                 _buildNavItem(
                   context,
+                  'New SDK Test',
+                  Icons.science,
+                  AppRouter.newSdkTest,
+                  isCollapsed,
+                ),
+                _buildNavItem(
+                  context,
                   'Services',
                   Icons.api,
                   AppRouter.services,

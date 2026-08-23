@@ -7,6 +7,8 @@
 
 # Allow other top-level Dart files if needed
 !main.dart
+!models/
+!models/**
 !routes.dart
 !theme/
 !theme/**

@@ -3,6 +3,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const PayGlocalClient = require('./pg-client-sdk/lib/index.js');
 const PayPdGlocalClient = require('./pgpd-client-sdk/lib/index.js');
+// Routes for the vendored "simple" SDK, served alongside the existing ones.
+const sdkSimpleRoutes = require('./sdk-simple-routes.js');
 
 const fs = require('fs');
 const path = require('path');
@@ -50,6 +52,12 @@ app.use((req, res, next) => {
   console.log('body (may be parsed by express.json()):', req.body);
   next();
 });
+
+
+// /api/sdk-simple/* — the vendored simple SDK. Registered here, before the
+// routes below, because it shares nothing with them: its own keys, its own
+// config, its own error shape.
+sdkSimpleRoutes.register(app);
 
 
 // Only start server if not in serverless environment (Vercel)
@@ -106,6 +114,19 @@ function normalizePemKey(key) {
   
   // Remove non-ASCII characters (but keep the key structure)
   normalized = normalized.replace(/[^\x00-\x7F]/g, '');
+
+  // Convert RSA-specific header formats to standard PEM markers
+  if (normalized.includes('-----BEGIN RSA PUBLIC KEY-----')) {
+    normalized = normalized
+      .replace(/-----BEGIN RSA PUBLIC KEY-----/g, '-----BEGIN PUBLIC KEY-----')
+      .replace(/-----END RSA PUBLIC KEY-----/g, '-----END PUBLIC KEY-----');
+  }
+
+  if (normalized.includes('-----BEGIN RSA PRIVATE KEY-----')) {
+    normalized = normalized
+      .replace(/-----BEGIN RSA PRIVATE KEY-----/g, '-----BEGIN PRIVATE KEY-----')
+      .replace(/-----END RSA PRIVATE KEY-----/g, '-----END PRIVATE KEY-----');
+  }
   
   // Final validation: ensure it looks like a PEM key
   if (!normalized.includes('-----BEGIN') || !normalized.includes('-----END')) {
@@ -161,27 +182,44 @@ function loadKeyOptional(envVarName, filePathEnvVar) {
 
 // Read and normalize PEM key content (supports both env vars and files)
 // Configuration 1 is required
-const payglocalPublicKey = loadKey('PAYGLOCAL_PUBLIC_KEY_CONTENT', 'PAYGLOCAL_PUBLIC_KEY');
-const merchantPrivateKey = loadKey('PAYGLOCAL_PRIVATE_KEY_CONTENT', 'PAYGLOCAL_PRIVATE_KEY');
+let payglocalPublicKey = loadKey('PAYGLOCAL_PUBLIC_KEY_CONTENT', 'PAYGLOCAL_PUBLIC_KEY');
+let merchantPrivateKey = loadKey('PAYGLOCAL_PRIVATE_KEY_CONTENT', 'PAYGLOCAL_PRIVATE_KEY');
 
 // Configuration 2 and 3 are optional
-const payglocalPublicKey2 = loadKeyOptional('PAYGLOCAL_PUBLIC_KEY2_CONTENT', 'PAYGLOCAL_PUBLIC_KEY2');
-const merchantPrivateKey2 = loadKeyOptional('PAYGLOCAL_PRIVATE_KEY2_CONTENT', 'PAYGLOCAL_PRIVATE_KEY2');
+let payglocalPublicKey2 = loadKeyOptional('PAYGLOCAL_PUBLIC_KEY2_CONTENT', 'PAYGLOCAL_PUBLIC_KEY2');
+let merchantPrivateKey2 = loadKeyOptional('PAYGLOCAL_PRIVATE_KEY2_CONTENT', 'PAYGLOCAL_PRIVATE_KEY2');
+let merchantPrivateKey3 = loadKeyOptional('PAYGLOCAL_PRIVATE_KEY3_CONTENT', 'PAYGLOCAL_PRIVATE_KEY3');
 
-const merchantPrivateKey3 = loadKeyOptional('PAYGLOCAL_PRIVATE_KEY3_CONTENT', 'PAYGLOCAL_PRIVATE_KEY3');
-// Validate keys
+function reformatPemKeyWithCrypto(pem, isPrivate = false) {
+  if (!pem) return pem;
+  const keyObj = isPrivate ? crypto.createPrivateKey(pem) : crypto.createPublicKey(pem);
+  const type = isPrivate ? 'pkcs8' : 'spki';
+  return keyObj.export({ type, format: 'pem' }).toString();
+}
+
+// Validate and normalize key type for stable operation with crypto+jose APIs
 try {
-  crypto.createPublicKey(payglocalPublicKey);
-  console.log('Public key is valid');
+  payglocalPublicKey = reformatPemKeyWithCrypto(payglocalPublicKey, false);
+  console.log('Public key is valid and normalized to SPKI');
 } catch (e) {
   console.error('Invalid public key:', e.message);
 }
+
 try {
-  crypto.createPrivateKey(merchantPrivateKey);
-  console.log('Private key is valid');
+  merchantPrivateKey = reformatPemKeyWithCrypto(merchantPrivateKey, true);
+  console.log('Private key is valid and normalized to PKCS8');
 } catch (e) {
   console.error('Invalid private key:', e.message);
 }
+
+try {
+  if (payglocalPublicKey2) payglocalPublicKey2 = reformatPemKeyWithCrypto(payglocalPublicKey2, false);
+  if (merchantPrivateKey2) merchantPrivateKey2 = reformatPemKeyWithCrypto(merchantPrivateKey2, true);
+  if (merchantPrivateKey3) merchantPrivateKey3 = reformatPemKeyWithCrypto(merchantPrivateKey3, true);
+} catch (e) {
+  console.warn('Optional key normalization warning:', e.message);
+}
+
 
 const config = {
   apiKey: process.env.PAYGLOCAL_API_KEY,
@@ -392,7 +430,7 @@ const pdclient = new PayPdGlocalClient(config); // or use config2/config3 if nee
 //     };
 
 //     console.log('Payload:', JSON.stringify(payload, null, 2));
-//     console.log('Environment Variables:', {
+//     console.log('Environment Variables........................:', {
 //       MERCHANT_ID: process.env.PAYGLOCAL_MERCHANT_ID,
 //       PUBLIC_KEY_ID: process.env.PAYGLOCAL_PUBLIC_KEY_ID,
 //       PRIVATE_KEY_ID: process.env.PAYGLOCAL_PRIVATE_KEY_ID,
@@ -459,142 +497,242 @@ const pdclient = new PayPdGlocalClient(config); // or use config2/config3 if nee
 //       jwe,                         
 //       {
 //         headers: {
-          // "Content-Type": "text/plain", 
-          // "x-gl-token-external": jws,     
+//           "Content-Type": "text/plain", 
+//           "x-gl-token-external": jws,     
 //         },
 //       }
 //     );
 
-//     console.log('Raw PayGlocal response:', pgResponse.data);
-
-//     const redirect_url =
-//       pgResponse.data?.data?.redirectUrl ||
-//       pgResponse.data?.redirect_url ||
-//       pgResponse.data?.payment_link;
-
-//     const status_url =
-//       pgResponse.data?.data?.statusUrl ||
-//       pgResponse.data?.status_url ||
-//       null;
-
-//     if (!redirect_url) {
-//       console.error('No redirect_url found in:', pgResponse.data);
-//       return res.status(502).json({ error: 'No payment link received' });
-//     }
-
-//     res.status(200).json({
-//       payment_link: redirect_url,
-//       status_link: status_url,
-//     });
-//   } catch (error) {
-//     if (axios.isAxiosError(error)) {
-//       console.error('Payglocal Error Response:', JSON.stringify(error.response?.data, null, 2));
-//       console.error('Status:', error.response?.status);
-//       console.error('Headers:', error.response?.headers);
-//       return res.status(error.response?.status || 500).json({
-//         error: 'Payment initiation failed',
-//         details: error.response?.data || error.message,
-//       });
-//     }
-
-//     console.error('Error in /api/pay/alt:', error.message || error);
-//     return res.status(500).json({
-//       error: 'Internal server error',
-//       details: error.message,
-//     });
-//   }
-// });
+    // console.log('Raw PayGlocal response:', pgResponse.data);
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-app.post('/api/pay/jwt', async (req, res) => {
+  app.post("/api/pay/jwt", async (req, res) => {
+ 
   try {
-      const { merchantTxnId,paymentData, merchantCallbackURL} = req.body;
-      if (!merchantTxnId || !paymentData || !merchantCallbackURL) {
-        return res.status(400).json({ 
-          status: 'error',
-          message: 'Missing required fields',
-          code: 'VALIDATION_ERROR',
-          details: { requiredFields: ['merchantTxnId', 'paymentData', 'merchantCallbackURL'] }
-        });
-      }
-
+ 
+    const { merchantTxnId, paymentData, merchantCallbackURL } = req.body;
+ 
+    if (!merchantTxnId || !paymentData || !merchantCallbackURL) {
+ 
+      return res.status(400).json({
+ 
+        status: "error",
+ 
+        message: "Missing required fields",
+ 
+      });
+ 
+    }
+ 
     const payload = {
+ 
       merchantTxnId,
+ 
       paymentData,
-      merchantCallbackURL
+ 
+      merchantCallbackURL,
+ 
     };
+     console.log("Payload:...................................");
+    const jweIat = Math.floor(Date.now());
+    const jweExp = jweIat + 300000;
+ 
+    // Encrypt payload into JWE
+    const payloadStr = JSON.stringify(payload);
+    const publicKey = await pemToKey(payglocalPublicKey, false);
+    console.log({ publicKey })
+ 
+    const jwe = await new jose.CompactEncrypt(new TextEncoder().encode(payloadStr))
+      .setProtectedHeader({
+        alg: 'RSA-OAEP-256',
+        enc: 'A128CBC-HS256',
+        iat: jweIat.toString(),
+        exp: jweExp,
+        kid: process.env.PAYGLOCAL_PUBLIC_KEY_ID,
+        'issued-by': process.env.PAYGLOCAL_MERCHANT_ID,
+      })
+      .encrypt(publicKey);
+ 
+    console.log('JWE:', jwe);
+    console.log('JWE Header:', JSON.parse(Buffer.from(jwe.split('.')[0], 'base64').toString()));
+ 
+    // JWS token creation
+    console.log('Creating JWS token...');
+ 
+    // Generate iat and exp for JWS
+    const jwsIat = Math.floor(Date.now());
+    const jwsExp =  300000;
+ 
+    const privateKey = await pemToKey(merchantPrivateKey, true);
+    const digestObject = {
+      digest: crypto.createHash('sha256').update(jwe).digest('base64'),
+      digestAlgorithm: 'SHA-256',
+      iat: jweIat.toString(),
+      exp: 300000,
+    };
+ 
+    const jws = await new jose.CompactSign(new TextEncoder().encode(JSON.stringify(digestObject)))
+      .setProtectedHeader({
+        alg: 'RS256',
+        kid: process.env.PAYGLOCAL_PRIVATE_KEY_ID,
+        'x-gl-merchantId': process.env.PAYGLOCAL_MERCHANT_ID,
+        'issued-by': process.env.PAYGLOCAL_MERCHANT_ID,
+        'x-gl-enc': 'true',
+        'is-digested': 'true',
+      })
+      .sign(privateKey);
+ 
+    console.log('JWS:', jws);
+    console.log('JWS Header:', JSON.parse(Buffer.from(jws.split('.')[0], 'base64').toString()));
+    console.log("Sending to PayGlocal...");
+    // console.log("CURL_JWE=", jwe);
+    // console.log("CURL_JWS=", jws);
+ 
+    // Send to PayGlocal
+    const pgResponse = await axios.post(
+      "https://api.uat.payglocal.in/gl/v1/payments/initiate/paycollect",
+      jwe,                         
+      {
+        headers: {
+          "Content-Type": "text/plain",
+          "x-gl-token-external": jws,     
+        },
+      }
+    );
+ 
+    console.log('Raw PayGlocal response:', pgResponse.data);
 
-    console.log('Initiating JWT payment with payload:', payload);
 
 
-    let payment;
-    if (payload.paymentData.cardData) {
-      payment = await pdclient.initiateJwtPayment(payload);
+    const redirect_url =
+      pgResponse.data?.data?.redirectUrl ||
+      pgResponse.data?.redirect_url ||
+      pgResponse.data?.payment_link;
 
-    } else {
-      payment = await client.initiateJwtPayment(payload);
+    const status_url =
+      pgResponse.data?.data?.statusUrl ||
+      pgResponse.data?.status_url ||
+      null;
+
+    if (!redirect_url) {
+      console.error('No redirect_url found in:', pgResponse.data);
+      return res.status(502).json({ error: 'No payment link received' });
     }
 
-    console.log('Raw SDK Response:', payment);
-
-    // Check if the SDK response indicates an error
-    if (payment?.status === 'REQUEST_ERROR' || payment?.status === 'ERROR' || payment?.error) {
-      throw new Error(`PayGlocal SDK Error: ${payment.message || payment.error || 'Unknown error'}`);
-    }
-
-    // Extract payment link and gid from the actual PayGlocal response structure
-    const paymentLink = payment?.data?.redirectUrl || 
-                       payment?.data?.redirect_url || 
-                       payment?.data?.payment_link ||
-                       payment?.redirectUrl ||
-                       payment?.redirect_url ||
-                       payment?.payment_link ||
-                       payment?.data?.paymentLink ||
-                       payment?.paymentLink;
-
-    const gid = payment?.gid || 
-                payment?.data?.gid || 
-                payment?.transactionId || 
-                payment?.data?.transactionId;
-
-
-
-    // Format response to match frontend expectations
-    const formattedResponse = {
-      status: 'SUCCESS',
-      message: 'Payment initiated successfully',
-      payment_link: paymentLink,
-      raw_response: payment
-    };
-
-    res.status(200).json(formattedResponse);
+    res.status(200).json({
+      payment_link: redirect_url,
+      status_link: status_url,
+    });
   } catch (error) {
-    console.error("Payment error:", error);
-    res.status(500).json({
-      status: "ERROR",
-      message: "Payment failed",
-      error: error.message || "Unknown error occurred",
-      code: "PAYMENT_ERROR"
+    if (axios.isAxiosError(error)) {
+      console.error('Payglocal Error Response:', JSON.stringify(error.response?.data, null, 2));
+      console.error('Status:', error.response?.status);
+      console.error('Headers:', error.response?.headers);
+      return res.status(error.response?.status || 500).json({
+        error: 'Payment initiation failed',
+        details: error.response?.data || error.message,
+      });
+    }
+
+    console.error('Error in /api/pay/alt:', error.message || error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      details: error.message,
     });
   }
-
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// app.post('/api/pay/jwt', async (req, res) => {
+//   try {
+//       const { merchantTxnId,paymentData, merchantCallbackURL} = req.body;
+//       if (!merchantTxnId || !paymentData || !merchantCallbackURL) {
+//         return res.status(400).json({ 
+//           status: 'error',
+//           message: 'Missing required fields',
+//           code: 'VALIDATION_ERROR',
+//           details: { requiredFields: ['merchantTxnId', 'paymentData', 'merchantCallbackURL'] }
+//         });
+//       }
+
+//     const payload = {
+//       merchantTxnId,
+//       paymentData,
+//       merchantCallbackURL
+//     };
+
+//     console.log('Initiating JWT payment with payload:', payload);
+
+
+//     let payment;
+//     if (payload.paymentData.cardData) {
+//       payment = await pdclient.initiateJwtPayment(payload);
+
+//     } else {
+//       payment = await client.initiateJwtPayment(payload);
+//     }
+
+//     console.log('Raw SDK Response:', payment);
+
+//     // Check if the SDK response indicates an error
+//     if (payment?.status === 'REQUEST_ERROR' || payment?.status === 'ERROR' || payment?.error) {
+//       throw new Error(`PayGlocal SDK Error: ${payment.message || payment.error || 'Unknown error'}`);
+//     }
+
+//     // Extract payment link and gid from the actual PayGlocal response structure
+//     const paymentLink = payment?.data?.redirectUrl || 
+//                        payment?.data?.redirect_url || 
+//                        payment?.data?.payment_link ||
+//                        payment?.redirectUrl ||
+//                        payment?.redirect_url ||
+//                        payment?.payment_link ||
+//                        payment?.data?.paymentLink ||
+//                        payment?.paymentLink;
+
+//     const gid = payment?.gid || 
+//                 payment?.data?.gid || 
+//                 payment?.transactionId || 
+//                 payment?.data?.transactionId;
+
+
+
+//     // Format response to match frontend expectations
+//     const formattedResponse = {
+//       status: 'SUCCESS',
+//       message: 'Payment initiated successfully',
+//       payment_link: paymentLink,
+//       raw_response: payment
+//     };
+
+//     res.status(200).json(formattedResponse);
+//   } catch (error) {
+//     console.error("Payment error:", error);
+//     res.status(500).json({
+//       status: "ERROR",
+//       message: "Payment failed",
+//       error: error.message || "Unknown error occurred",
+//       code: "PAYMENT_ERROR"
+//     });
+//   }
+
+// });
 
 
 
@@ -1225,6 +1363,8 @@ try {
     iat: iat.toString(),     
   };
 
+  
+
   // 3) Sign with merchant private key → JWS
   const privateKey = await pemToKey(merchantPrivateKey, true);
   const joseModule = await getJose();
@@ -1410,44 +1550,19 @@ app.post('/api/codedrop', async (req, res) => {
     });
 
     // Generate iat and exp
-    // let iat = Date.now();
-    // let exp = iat + 300000; // 5 minutes
+    let iat = Date.now();
+    let exp = iat + 300000; // 5 minutes
 
     // // Encrypt payload into JWE
-    // const payloadStr = JSON.stringify(payload);
+    const payloadStr = JSON.stringify(payload);
     const publicKey2 = await pemToKey(payglocalPublicKey2, false);
 
-    // const jwe = await new jose.CompactEncrypt(new TextEncoder().encode(payloadStr))
-    //   .setProtectedHeader({
-    //     alg: 'RSA-OAEP-256',
-    //     enc: 'A128CBC-HS256',
-    //     iat: iat.toString(), // String for consistency
-    //     exp: exp, // Number, not string
-    //     kid: process.env.PAYGLOCAL_PUBLIC_KEY_ID2,
-    //     'issued-by': process.env.PAYGLOCAL_MERCHANT_ID2,
-    //   })
-    //   .encrypt(publicKey2);
-
-    // console.log('JWE:', jwe);
-    // console.log('JWE Header:', JSON.parse(Buffer.from(jwe.split('.')[0], 'base64').toString()));
-
-    //testing 
-    // / Generate iat and exp for JWE
-    const jweIat = Math.floor(Date.now() / 1000);
-    const jweExp = jweIat + 300;
-
-    // Encrypt payload into JWE
-    const payloadStr = JSON.stringify(payload);
-    const publicKey = await pemToKey(payglocalPublicKey, false);
-    console.log({ publicKey })
-    const joseModule = await getJose();
-
-    const jwe = await new joseModule.CompactEncrypt(new TextEncoder().encode(payloadStr))
+    const jwe = await new jose.CompactEncrypt(new TextEncoder().encode(payloadStr))
       .setProtectedHeader({
         alg: 'RSA-OAEP-256',
         enc: 'A128CBC-HS256',
-        iat: jweIat.toString(),
-        exp: jweExp,
+        iat: iat.toString(), // String for consistency
+        exp: exp, // Number, not string
         kid: process.env.PAYGLOCAL_PUBLIC_KEY_ID2,
         'issued-by': process.env.PAYGLOCAL_MERCHANT_ID2,
       })
@@ -1456,19 +1571,76 @@ app.post('/api/codedrop', async (req, res) => {
     console.log('JWE:', jwe);
     console.log('JWE Header:', JSON.parse(Buffer.from(jwe.split('.')[0], 'base64').toString()));
 
+    //testing 
+    // / Generate iat and exp for JWE
+    const jweIat = Math.floor(Date.now() / 1000);
+    const jweExp = jweIat + 300;
+
+    // Encrypt payload into JWE
+    // const payloadStr = JSON.stringify(payload);
+    // const publicKey = await pemToKey(payglocalPublicKey, false);
+    // console.log({ publicKey })
+    // const joseModule = await getJose();
+
+    // const jwe = await new joseModule.CompactEncrypt(new TextEncoder().encode(payloadStr))
+    //   .setProtectedHeader({
+    //     alg: 'RSA-OAEP-256',
+    //     enc: 'A128CBC-HS256',
+    //     iat: jweIat.toString(),
+    //     exp: jweExp,
+    //     kid: process.env.PAYGLOCAL_PUBLIC_KEY_ID2,
+    //     'issued-by': process.env.PAYGLOCAL_MERCHANT_ID2,
+    //   })
+    //   .encrypt(publicKey2);
+
+    // console.log('JWE:', jwe);
+    // console.log('JWE Header:', JSON.parse(Buffer.from(jwe.split('.')[0], 'base64').toString()));
+
     // Sign JWE into JWS
-    // const jwsIat = Date.now();
-    // exp = 300000;
+    const jwsIat = Date.now();
+    exp = 300000;
 
     const privateKey2 = await pemToKey(merchantPrivateKey2, true);
+    const digestObject = {
+      digest: crypto.createHash('sha256').update(jwe).digest('base64'),
+      digestAlgorithm: 'SHA-256',
+      exp: exp, // Number, not string
+      iat: iat.toString(), // String for consistency
+    };
+
+    const jws = await new jose.CompactSign(new TextEncoder().encode(JSON.stringify(digestObject)))
+      .setProtectedHeader({
+        alg: 'RS256',
+        kid: process.env.PAYGLOCAL_PRIVATE_KEY_ID2,
+        'x-gl-merchantId': process.env.PAYGLOCAL_MERCHANT_ID2,
+        'issued-by': process.env.PAYGLOCAL_MERCHANT_ID2,
+        'x-gl-enc': 'true',
+        'is-digested': 'true',
+      })
+      .sign(privateKey2);
+
+    console.log('JWS:', jws);
+    console.log('JWS Header:', JSON.parse(Buffer.from(jws.split('.')[0], 'base64').toString()));
+
+
+    //testing
+    // JWS token creation
+    console.log('Creating JWS token...');
+
+    // Generate iat and exp for JWS
+    // const jwsIat = Math.floor(Date.now() / 1000);
+    // const jwsExp = jwsIat + 300;
+
+    // const privateKey = await pemToKey(merchantPrivateKey, true);
     // const digestObject = {
     //   digest: crypto.createHash('sha256').update(jwe).digest('base64'),
     //   digestAlgorithm: 'SHA-256',
-    //   exp: exp, // Number, not string
-    //   iat: iat.toString(), // String for consistency
+    //   exp: jwsExp,
+    //   iat: jwsIat,
     // };
+    // const joseModule2 = await getJose();
 
-    // const jws = await new jose.CompactSign(new TextEncoder().encode(JSON.stringify(digestObject)))
+    // const jws = await new joseModule2.CompactSign(new TextEncoder().encode(JSON.stringify(digestObject)))
     //   .setProtectedHeader({
     //     alg: 'RS256',
     //     kid: process.env.PAYGLOCAL_PRIVATE_KEY_ID2,
@@ -1477,39 +1649,7 @@ app.post('/api/codedrop', async (req, res) => {
     //     'x-gl-enc': 'true',
     //     'is-digested': 'true',
     //   })
-    //   .sign(privateKey2);
-
-    // console.log('JWS:', jws);
-    // console.log('JWS Header:', JSON.parse(Buffer.from(jws.split('.')[0], 'base64').toString()));
-
-
-    //testing
-    // JWS token creation
-    console.log('Creating JWS token...');
-
-    // Generate iat and exp for JWS
-    const jwsIat = Math.floor(Date.now() / 1000);
-    const jwsExp = jwsIat + 300;
-
-    const privateKey = await pemToKey(merchantPrivateKey, true);
-    const digestObject = {
-      digest: crypto.createHash('sha256').update(jwe).digest('base64'),
-      digestAlgorithm: 'SHA-256',
-      exp: jwsExp,
-      iat: jwsIat,
-    };
-    const joseModule2 = await getJose();
-
-    const jws = await new joseModule2.CompactSign(new TextEncoder().encode(JSON.stringify(digestObject)))
-      .setProtectedHeader({
-        alg: 'RS256',
-        kid: privateKeyId,
-        'x-gl-merchantId': process.env.PAYGLOCAL_MERCHANT_ID2,
-        'issued-by': process.env.PAYGLOCAL_MERCHANT_ID2,
-        'x-gl-enc': 'true',
-        'is-digested': 'true',
-      })
-      .sign(privateKey2);
+      // .sign(privateKey2);
 
     console.log('JWS:', jws);
     console.log('JWS Header:', JSON.parse(Buffer.from(jws.split('.')[0], 'base64').toString()));
