@@ -63,7 +63,18 @@ export const config = {
    */
   webhookUrl: process.env.PAYGLOCAL_WEBHOOK_URL || 'http://localhost:3000/payglocal/webhook',
 
-  /** Your own pages, where the customer lands afterwards. */
+  /**
+   * Your own pages, where the customer lands afterwards.
+   *
+   * If your app routes on the fragment, write the whole thing:
+   * 'https://shop.com/#/thanks'. The parameters are added inside the fragment
+   * so your router receives them.
+   *
+   * QUOTE THESE IN A .env FILE. An unquoted '#' starts a comment, so
+   *     PAYGLOCAL_SUCCESS_URL=https://shop.com/#/thanks
+   * silently becomes 'https://shop.com/' and every customer lands on your home
+   * page. Write PAYGLOCAL_SUCCESS_URL="https://shop.com/#/thanks" instead.
+   */
   successUrl: process.env.PAYGLOCAL_SUCCESS_URL || 'http://localhost:3000/success',
   failureUrl: process.env.PAYGLOCAL_FAILURE_URL || 'http://localhost:3000/failure',
 
@@ -159,12 +170,33 @@ export function checkConfig() {
   }
 
   for (const field of ['callbackUrl', 'webhookUrl', 'successUrl', 'failureUrl']) {
+    let parsed;
     try {
-      new URL(config[field]);
+      parsed = new URL(config[field]);
     } catch {
       throw new PayGlocalError(
         `config.${field} must be a full URL, e.g. https://your-site.com/... ` +
           `Got "${config[field]}".`,
+        'CONFIG_MISSING'
+      );
+    }
+
+    // A bare origin is almost always an unquoted '#' in a .env file: dotenv
+    // treats the rest of the line as a comment, so 'https://shop.com/#/thanks'
+    // arrives as 'https://shop.com/'. That is a valid URL, so the check above
+    // passes and the customer quietly lands on the home page instead.
+    const isBareOrigin = (parsed.pathname === '/' || parsed.pathname === '') &&
+      !parsed.search && !parsed.hash;
+
+    if (isBareOrigin && (field === 'successUrl' || field === 'failureUrl')) {
+      throw new PayGlocalError(
+        `config.${field} is just "${config[field]}", with no path. If you set ` +
+          `it in a .env file and the URL contains a '#', quote it: an ` +
+          `unquoted '#' starts a comment and everything after it is dropped. ` +
+          `Write ${field === 'successUrl' ? 'PAYGLOCAL_SUCCESS_URL' : 'PAYGLOCAL_FAILURE_URL'}` +
+          `="https://your-site.com/#/your-page". If your page really is at the ` +
+          `site root, add an explicit path such as "/" plus a query, or set ` +
+          `config.${field} in config.js instead.`,
         'CONFIG_MISSING'
       );
     }

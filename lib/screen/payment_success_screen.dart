@@ -153,7 +153,9 @@ class PaymentSuccessScreen extends StatelessWidget {
                             _buildDetailRow('Amount', amount!, Icons.attach_money, const Color(0xFF10B981)),
                           _buildDetailRow('Status', status ?? 'Completed', Icons.check_circle, const Color(0xFF10B981)),
                           _buildDetailRow('Payment Method', paymentMethod ?? 'PayGlocal', Icons.payment, const Color(0xFF3B82F6)),
-                          _buildDetailRow('Transaction ID', txnId ?? 'TXN_${DateTime.now().millisecondsSinceEpoch}', Icons.tag, const Color(0xFF6B7280)),
+                          // Never invent an id here. A fabricated reference looks real to the
+                          // customer and to support, and is traceable to nothing.
+                          _buildDetailRow('Transaction ID', txnId ?? 'Not provided', Icons.tag, const Color(0xFF6B7280)),
                           if (gid != null && gid!.isNotEmpty && gid != 'N/A')
                             _buildDetailRow('PayGlocal ID', gid!, Icons.receipt, const Color(0xFF6B7280)),
                           _buildDetailRow('Date & Time', _formatDateTime(), Icons.schedule, const Color(0xFF6B7280)),

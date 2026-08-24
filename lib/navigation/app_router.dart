@@ -218,7 +218,9 @@ class AppRouter {
         final queryParams = uri.queryParameters;
         return _buildRoute(
           PaymentSuccessScreen(
-            txnId: queryParams['txnId'],
+            // The simple SDK's callback sends `orderId`; the older routes send
+            // `txnId`. Accept either so both flows land on the same screen.
+            txnId: queryParams['txnId'] ?? queryParams['orderId'],
             amount: queryParams['amount'],
             status: queryParams['status'],
             gid: queryParams['gid'],
@@ -231,8 +233,10 @@ class AppRouter {
         final queryParams = uri.queryParameters;
         return _buildRoute(
           PaymentFailureScreen(
-            reason: queryParams['reason'] ?? (settings.arguments as String?),
-            txnId: queryParams['txnId'],
+            reason: queryParams['reason'] ??
+                queryParams['status'] ??
+                (settings.arguments as String?),
+            txnId: queryParams['txnId'] ?? queryParams['orderId'],
             status: queryParams['status'],
           ),
           settings,

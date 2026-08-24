@@ -100,17 +100,50 @@ export async function handleCallback(req, res) {
     return res.redirect(config.failureUrl);
   }
 
-  const target = new URL(result.paid ? config.successUrl : config.failureUrl);
-
   // Your order id, so your page can look the order up in your database.
-  if (result.orderId) target.searchParams.set('orderId', result.orderId);
-  if (!result.paid && result.status) target.searchParams.set('status', result.status);
-
+  //
   // Note: transactionId is deliberately NOT put in the URL. It is the key that
   // can query a payment, and URLs end up in browser history, referrer headers
   // and access logs.
+  return res.redirect(
+    addParams(result.paid ? config.successUrl : config.failureUrl, {
+      orderId: result.orderId,
+      status: result.paid ? undefined : result.status,
+    })
+  );
+}
 
-  return res.redirect(target.toString());
+/**
+ * Adds query parameters to your success or failure URL.
+ *
+ * Why this is not simply `url.searchParams.set`: a single-page app that routes
+ * on the fragment, as Flutter, React Router and Vue Router all can, gets its
+ * route from after the "#". A query written before the "#" never reaches that
+ * router, so the page would load with none of these values:
+ *
+ *   https://shop.com/?orderId=A-1#/thanks      <- router sees no orderId
+ *   https://shop.com/#/thanks?orderId=A-1      <- correct
+ *
+ * So when your URL carries a fragment route, the parameters go inside it. A
+ * normal path URL behaves exactly as before.
+ */
+function addParams(base, params) {
+  const url = new URL(base);
+  const entries = Object.entries(params).filter(
+    ([, value]) => value !== undefined && value !== null && value !== ''
+  );
+  if (!entries.length) return url.toString();
+
+  if (url.hash.startsWith('#/')) {
+    const [route, existingQuery] = url.hash.slice(1).split('?');
+    const query = new URLSearchParams(existingQuery);
+    for (const [key, value] of entries) query.set(key, value);
+    url.hash = `#${route}?${query}`;
+    return url.toString();
+  }
+
+  for (const [key, value] of entries) url.searchParams.set(key, value);
+  return url.toString();
 }
 
 /**
