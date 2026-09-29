@@ -159,6 +159,8 @@ Future<void> handlePdJwtPayment(
     final merchantTxnId = generateMerchantTxnId();
     final finalPayload = {
       "merchantTxnId": merchantTxnId,
+      // Tells the backend to call the PayDirect initiate endpoint instead of PayCollect.
+      "flowType": "paydirect",
       ...payload,
       "merchantCallbackURL":
           "https://api.uat.payglocal.in/gl/v1/payments/merchantCallback",

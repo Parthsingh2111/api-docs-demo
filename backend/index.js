@@ -25,6 +25,14 @@ const upload = multer();
 dotenv.config();
 const port = process.env.PORT || 3000;
 
+// PayGlocal initiate endpoints: PayCollect (hosted checkout) and PayDirect (card data sent by the merchant).
+const PAYGLOCAL_PAYCOLLECT_INITIATE_URL =
+  process.env.PAYGLOCAL_PAYCOLLECT_INITIATE_URL ||
+  'https://api.uat.payglocal.in/gl/v1/payments/initiate/paycollect';
+const PAYGLOCAL_PAYDIRECT_INITIATE_URL =
+  process.env.PAYGLOCAL_PAYDIRECT_INITIATE_URL ||
+  'https://api.uat.payglocal.in/gl/v1/payments/initiate';
+
 const app = express();
 
 // CORS must be first
@@ -511,7 +519,7 @@ const pdclient = new PayPdGlocalClient(config); // or use config2/config3 if nee
  
   try {
  
-    const { merchantTxnId, paymentData, merchantCallbackURL } = req.body;
+    const { merchantTxnId, paymentData, merchantCallbackURL, riskData, flowType } = req.body;
  
     if (!merchantTxnId || !paymentData || !merchantCallbackURL) {
  
@@ -525,6 +533,15 @@ const pdclient = new PayPdGlocalClient(config); // or use config2/config3 if nee
  
     }
  
+    // PayDirect is chosen explicitly by the client, or inferred from card data
+    // being present in the request. Everything else stays on PayCollect.
+    const isPayDirect =
+      String(flowType || "").toLowerCase() === "paydirect" || !!paymentData?.cardData;
+
+    const initiateUrl = isPayDirect
+      ? PAYGLOCAL_PAYDIRECT_INITIATE_URL
+      : PAYGLOCAL_PAYCOLLECT_INITIATE_URL;
+
     const payload = {
  
       merchantTxnId,
@@ -532,6 +549,8 @@ const pdclient = new PayPdGlocalClient(config); // or use config2/config3 if nee
       paymentData,
  
       merchantCallbackURL,
+ 
+      ...(riskData ? { riskData } : {}),
  
     };
      console.log("Payload:...................................");
@@ -590,8 +609,10 @@ const pdclient = new PayPdGlocalClient(config); // or use config2/config3 if nee
     // console.log("CURL_JWS=", jws);
  
     // Send to PayGlocal
+    console.log(`Flow: ${isPayDirect ? "PayDirect" : "PayCollect"} -> ${initiateUrl}`);
+
     const pgResponse = await axios.post(
-      "https://api.uat.payglocal.in/gl/v1/payments/initiate/paycollect",
+      initiateUrl,
       jwe,                         
       {
         headers: {
